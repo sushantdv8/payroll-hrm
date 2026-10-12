@@ -1,6 +1,7 @@
-# Only source code goes to GitHub. Everything not listed below is ignored (data, backups, caches, setups, tools).
+﻿# Only source code goes to GitHub. Everything not listed below is ignored (data, backups, caches, setups, tools).
 /*
 !/.gitignore
+!/README.md
 !/payroll-web/
 !/installer/
 !/biometric-web/
