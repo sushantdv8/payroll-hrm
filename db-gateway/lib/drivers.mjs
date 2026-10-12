@@ -18,6 +18,9 @@ export async function pgDriver(connectionString, { max = 10 } = {}) {
       const client = await pool.connect();
       try {
         await client.query('BEGIN');
+        // SQLite runs one write batch at a time, and the app's "write guard" (check a revision, then write) depends on that.
+        // PostgreSQL would let two batches pass the same check together, so batches take turns on one transaction lock.
+        await client.query('SELECT pg_advisory_xact_lock(7240001)');
         const out = await fn(wrap(client));
         await client.query('COMMIT');
         return out;

@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createGateway } from './lib/gateway.mjs';
-import { pgDriver } from './lib/drivers.mjs';
+import { pgDriver, pgliteDriver } from './lib/drivers.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const url = process.env.DATABASE_URL;
@@ -18,10 +18,14 @@ const host = process.env.HOST || '127.0.0.1';
 if (!url) { console.error('DATABASE_URL is not set.'); process.exit(1); }
 if (!secret || secret.length < 16) { console.error('GATEWAY_SECRET is not set (use at least 16 random characters).'); process.exit(1); }
 
-const driver = await pgDriver(url);
+// DATABASE_URL=pglite:<folder> runs PostgreSQL inside Node.js (PGlite) - for trying things out without a server, not for production
+const driver = url.startsWith('pglite:') ? await pgliteDriver(url.slice(7) || undefined) : await pgDriver(url);
 await driver.exec(fs.readFileSync(path.join(root, 'schema.sql'), 'utf8'));
 const handle = createGateway({ driver, secret });
 const server = http.createServer((req, res) => { void handle(req, res); });
+// Keep idle connections open much longer than the app's own pool does, so the app never sends on a connection we just closed.
+server.keepAliveTimeout = 300000;
+server.headersTimeout = 310000;
 server.listen(port, host, () => console.log(`Payroll database gateway on http://${host}:${port} (PostgreSQL ready)`));
 const stop = () => server.close(() => driver.close().then(() => process.exit(0)));
 process.on('SIGINT', stop);

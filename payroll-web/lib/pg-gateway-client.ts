@@ -4,8 +4,20 @@ type Kind = 'first' | 'all' | 'run';
 type Gateway = {url: string; secret: string};
 type Result = {rows: Record<string, unknown>[]; changes: number};
 
+// A connection that sat idle can be closed by the other side just as we send on it ("Network connection lost"): try again.
+// Writes carry an x-request-id, so the gateway answers a repeated request from its first run instead of writing twice.
+async function send(url: string, init: RequestInit): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    try { return await fetch(url, init); }
+    catch (error) {
+      if (attempt >= 3) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 100 * (attempt + 1)));
+    }
+  }
+}
+
 async function post(gw: Gateway, ops: {sql: string; params: unknown[]; kind: Kind}[]): Promise<Result[]> {
-  const response = await fetch(gw.url + '/db', {method: 'POST', headers: {'Content-Type': 'application/json', Authorization: 'Bearer ' + gw.secret}, body: JSON.stringify({ops})});
+  const response = await send(gw.url + '/db', {method: 'POST', headers: {'Content-Type': 'application/json', Authorization: 'Bearer ' + gw.secret, 'x-request-id': crypto.randomUUID()}, body: JSON.stringify({ops})});
   const body = await response.json().catch(() => ({})) as {results?: Result[]; error?: string};
   if (!response.ok || !body.results) throw new Error(body.error || 'Database request failed (' + response.status + ')');
   return body.results;
@@ -35,7 +47,7 @@ export function pgDatabase(gw: Gateway) {
     prepare: (sql: string) => new Statement(gw, sql),
     // Several statements run in ONE transaction: if one fails (for example the write guard), none of them is kept.
     async batch(statements: Statement[]) {
-      const results = await post(gw, statements.map((s) => s.op('all')));
+      const results = await post(gw, statements.map((s) => s.op('run')));
       return results.map((r) => ({results: r.rows, success: true, meta: {changes: r.changes}}));
     },
     // The tables already exist in PostgreSQL (the gateway creates them), so the app's SQLite setup text is not sent.
@@ -55,12 +67,12 @@ export function pgBucket(gw: Gateway) {
   return {
     async put(key: string, value: unknown, options?: {httpMetadata?: {contentType?: string}}) {
       const body = await toBytes(value);
-      const response = await fetch(url(key), {method: 'PUT', headers: {...auth, 'x-content-type': options?.httpMetadata?.contentType || 'application/octet-stream'}, body: body as BodyInit});
+      const response = await send(url(key), {method: 'PUT', headers: {...auth, 'x-content-type': options?.httpMetadata?.contentType || 'application/octet-stream'}, body: body as BodyInit});
       if (!response.ok) throw new Error('Object store write failed (' + response.status + ')');
       return null;
     },
     async get(key: string) {
-      const response = await fetch(url(key), {headers: auth});
+      const response = await send(url(key), {headers: auth});
       if (response.status === 404) return null;
       if (!response.ok) throw new Error('Object store read failed (' + response.status + ')');
       const bytes = new Uint8Array(await response.arrayBuffer());
@@ -74,13 +86,13 @@ export function pgBucket(gw: Gateway) {
       };
     },
     async head(key: string) {
-      const response = await fetch(url(key), {method: 'HEAD', headers: auth});
+      const response = await send(url(key), {method: 'HEAD', headers: auth});
       if (response.status === 404) return null;
       if (!response.ok) throw new Error('Object store read failed (' + response.status + ')');
       return {key, size: Number(response.headers.get('x-size') || 0), httpMetadata: {contentType: response.headers.get('x-content-type') || ''}};
     },
     async delete(key: string | string[]) {
-      for (const k of Array.isArray(key) ? key : [key]) await fetch(url(k), {method: 'DELETE', headers: auth});
+      for (const k of Array.isArray(key) ? key : [key]) await send(url(k), {method: 'DELETE', headers: auth});
     },
   } as unknown as R2Bucket;
 }

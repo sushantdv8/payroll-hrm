@@ -61,12 +61,35 @@ Restore with `pg_restore -d payroll --clean payroll_YYYYMMDD.dump`. Never open P
 npm install
 node test/run.mjs            # SQL translation + the app's real statements, on PostgreSQL (PGlite), through the gateway
 node test/migrate-test.mjs   # SQLite -> PostgreSQL copy
+node test/client-test.mjs    # the app-side adapter, including a connection that dies after the gateway wrote
+node test/scan-app-sql.mjs   # every SQL string in payroll-web is prepared by PostgreSQL (needs ..\payroll-web)
 ```
+
+`DATABASE_URL=pglite:<folder>` starts the gateway on PGlite (PostgreSQL inside Node.js, no server needed). Use it to try
+things out only; production uses a real PostgreSQL server.
 
 ## What the gateway does
 
 * Translates the app's SQLite SQL on the fly (`json_extract`, `json_each`, `json_set`, `instr`, `COLLATE NOCASE`, `LIKE`, `?` -> `$n`).
-* `batch` = one transaction, so the HR "write guard" (CHECK failure) undoes the whole batch like D1 does.
+* `batch` = one transaction, so the HR "write guard" (CHECK failure) undoes the whole batch like D1 does. Batches also take
+  turns on one advisory lock, because SQLite never ran two write batches at once and the guard (check a revision, then
+  write) relies on that.
 * Files (source archive, photos, HR documents, month indexes) live in the `objects` table instead of R2.
 * PostgreSQL errors are reworded the SQLite way (`UNIQUE constraint failed: ...`) so the app's own checks keep working.
 * Every call needs `Authorization: Bearer <GATEWAY_SECRET>`.
+* A write sent again with the same `x-request-id` (the app does this when a connection drops) is answered from the first run
+  and written only once. Idle connections stay open for 5 minutes on the gateway side.
+* Text columns use the `"C"` collation, so sorting is bytewise like SQLite whatever the server's locale is.
+
+## What was checked (2026-10-12, with a copy of the real data)
+
+* The real database was copied to PostgreSQL (20,207 employees, 170,363 attendance months, 159,581 salaries, 7,008 files):
+  every table matched row for row (SHA-256 of all rows).
+* The same build of the app was run twice, on a copy of the SQLite data and on PostgreSQL, and 749 read requests (all
+  employee, attendance, salary, register, HR, report, master and original-source endpoints for 8 datasets) were compared:
+  identical, apart from rows that the app returns in no fixed order.
+* About 190 write requests were sent to both (employees, holidays, attendance, masters, HR users and every HR workflow,
+  salaries, salary sheets, biometric settings, images, HR documents): same results, same errors.
+* Fresh imports of real packages (om_03_26, om_01_13 and om_01_26, 82 MB) into both: same counts, same content.
+* Not yet done: a run against a real PostgreSQL server (the checks used PGlite, which is PostgreSQL itself) and a test
+  with several people working at the same time.

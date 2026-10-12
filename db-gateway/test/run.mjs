@@ -1,4 +1,4 @@
-﻿// Tests: SQL translation, and the app's real statements against PostgreSQL (PGlite) through the HTTP gateway.
+// Tests: SQL translation, and the app's real statements against PostgreSQL (PGlite) through the HTTP gateway.
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -21,7 +21,7 @@ assert.equal(toPg("SELECT lower(trim(json_extract(data,'$.'||?))) FROM t"), "SEL
 assert.match(toPg('SELECT l.a FROM json_each(?) j CROSS JOIN l ON l.k=json_extract(j.value,\'$.k\')'), /json_array_elements\(CAST\(\$1 AS json\)\) AS j\(value\) JOIN l ON l\.k=\(\(j\.value\)::json #>> '\{k\}'\)/); ok('json_each with alias, CROSS JOIN ... ON');
 assert.match(toPg('INSERT INTO t(a) SELECT json_extract(value,\'$.id\') FROM json_each(?) WHERE true'), /FROM json_array_elements\(CAST\(\$1 AS json\)\) AS je\(value\) WHERE true/); ok('json_each without alias');
 assert.match(toPg("UPDATE e SET data=(SELECT json_set(l.profile,'$.id',e.id,'$.revision',2) FROM l)"), /jsonb_set\(jsonb_set\(\(l\.profile\)::jsonb, '\{id\}', to_jsonb\(e\.id\)\), '\{revision\}', to_jsonb\(2\)\)/); ok('json_set');
-assert.equal(toPg('SELECT x FROM t ORDER BY paycode COLLATE NOCASE'), 'SELECT x FROM t ORDER BY lower(paycode)'); ok('COLLATE NOCASE');
+assert.equal(toPg('SELECT x FROM t ORDER BY paycode COLLATE NOCASE'), 'SELECT x FROM t ORDER BY lower(paycode) COLLATE \"C\"'); ok('COLLATE NOCASE');
 assert.equal(toPg('WHERE k LIKE ?'), 'WHERE k ILIKE $1'); ok('LIKE ignores case like SQLite');
 assert.equal(toPg("SELECT substr(k,1,instr(k,'|')-1)"), "SELECT substr(k,1,strpos(k, '|')-1)"); ok('instr');
 
@@ -122,6 +122,15 @@ assert.equal(r.status, 200); assert.equal(r.headers.get('x-size'), '8');
 r = await fetch(base + '/object?key=nope', { headers: { Authorization: 'Bearer ' + SECRET } }); assert.equal(r.status, 404);
 r = await fetch(base + '/object?key=' + encodeURIComponent(key), { method: 'DELETE', headers: { Authorization: 'Bearer ' + SECRET } });
 r = await fetch(base + '/object?key=' + encodeURIComponent(key), { method: 'HEAD', headers: { Authorization: 'Bearer ' + SECRET } }); assert.equal(r.status, 404); ok('object head / missing / delete');
+
+// a write repeated with the same x-request-id (the app resends after a lost connection) is applied only once
+const sendWrite = (id) => fetch(base + '/db', { method: 'POST', headers: { Authorization: 'Bearer ' + SECRET, 'Content-Type': 'application/json', 'x-request-id': id }, body: JSON.stringify({ ops: [{ sql: 'INSERT INTO holidays(id,owner,dataset,data,revision,updated_at) VALUES(?,?,?,?,1,?)', params: ['hx1', owner, 'd', '{}', now], kind: 'run' }] }) });
+const w1 = await sendWrite('req-1'), w2 = await sendWrite('req-1');
+assert.equal(w1.status, 200); assert.equal(w2.status, 200);
+assert.deepEqual(await w2.json(), { results: [{ rows: [], changes: 1 }] });
+assert.equal((await q("SELECT COUNT(*) n FROM holidays WHERE id='hx1'")).rows[0].n, 1);
+const w3 = await sendWrite('req-2'); assert.equal(w3.status, 400); // a different request is a real second insert: duplicate key
+ok('repeated request id is answered from the first run, written once');
 
 server.close();
 await driver.close();

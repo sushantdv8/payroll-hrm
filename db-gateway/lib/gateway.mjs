@@ -48,6 +48,7 @@ async function readBody(req, limit) {
 
 export function createGateway({ driver, secret }) {
   if (!secret || secret.length < 16) throw new Error('GATEWAY_SECRET must be set (at least 16 characters).');
+  const seen = new Map();
   const send = (res, status, body, headers = {}) => {
     const json = body !== null && typeof body === 'object' && !Buffer.isBuffer(body);
     res.writeHead(status, { 'Content-Type': json ? 'application/json' : 'application/octet-stream', 'Cache-Control': 'no-store', ...headers });
@@ -67,8 +68,28 @@ export function createGateway({ driver, secret }) {
       if (url.pathname === '/db' && req.method === 'POST') {
         const { ops, tx } = JSON.parse((await readBody(req, MAX_DB_BODY)).toString('utf8'));
         if (!Array.isArray(ops) || !ops.length) return send(res, 400, { error: 'No statements' });
-        const results = ops.length > 1 || tx ? await driver.transaction((q) => ops.reduce(async (p, op) => [...(await p), await run(q, op)], Promise.resolve([]))) : [await run(driver, ops[0])];
-        return send(res, 200, { results });
+        // A write sent with an x-request-id is remembered for two minutes: if the app lost the connection and sends the very
+        // same request again, the answer of the first run is returned instead of writing a second time.
+        const writes = ops.length > 1 || tx || ops.some((o) => o.kind === 'run' || o.kind === 'exec');
+        const id = writes ? String(req.headers['x-request-id'] || '') : '';
+        let work = id ? seen.get(id) : undefined;
+        if (!work) {
+          work = (async () => {
+            try {
+              const results = ops.length > 1 || tx ? await driver.transaction((q) => ops.reduce(async (p, op) => [...(await p), await run(q, op)], Promise.resolve([]))) : [await run(driver, ops[0])];
+              return [200, { results }];
+            } catch (error) {
+              return [error.status || 400, { error: describe(error), code: error.code || null }];
+            }
+          })();
+          if (id) {
+            seen.set(id, work);
+            if (seen.size > 500) seen.delete(seen.keys().next().value);
+            setTimeout(() => seen.delete(id), 120000).unref();
+          }
+        }
+        const [status, payload] = await work;
+        return send(res, status, payload);
       }
 
       if (url.pathname === '/object') {

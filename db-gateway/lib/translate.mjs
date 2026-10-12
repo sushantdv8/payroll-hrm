@@ -111,7 +111,7 @@ export function toPg(sql) {
   sql = rewriteFunctions(sql);
   return split(sql).map((p) => (p.code
     ? p.text
-      .replace(/\b([A-Za-z_][A-Za-z0-9_.]*)\s+COLLATE\s+NOCASE\b/gi, 'lower($1)')
+      .replace(/\b([A-Za-z_][A-Za-z0-9_.]*)\s+COLLATE\s+NOCASE\b/gi, 'lower($1) COLLATE "C"')
       .replace(/\bCROSS\s+JOIN\b/gi, 'JOIN')
       .replace(/\bLIKE\b/gi, 'ILIKE')
       .replace(/\bAS\s+REAL\b/gi, 'AS DOUBLE PRECISION')
