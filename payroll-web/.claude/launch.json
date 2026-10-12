@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "payroll-web",
+      "runtimeExecutable": "C:\\Users\\DELL\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\node\\bin\\node.exe",
+      "runtimeArgs": ["scripts/run-framework.mjs", "dev"],
+      "port": 5173
+    }
+  ]
+}

@@ -1,0 +1,89 @@
+/* Reports › P.F.Detail › PF 19  10 C Reports and PF KYC UPLOAD, in the original's colours */
+.pf-win{background:#fff;border:1px solid #cfd8e0;border-radius:6px;overflow:hidden;font-family:Tahoma,Verdana,Segoe UI,sans-serif;color:#111;font-size:.82rem}
+.pf-win :where(input:not([type=checkbox]):not([type=radio]),select,textarea){border:1px solid #9aa7b3;border-radius:2px;padding:2px 5px;font-size:.82rem;background:#fff;font-family:inherit;min-width:0;width:100%;box-sizing:border-box}
+.pf-win :where(input,select,textarea):disabled{background:#e2e2e2;color:#555}
+.pf-win :where(input[type=date]),.pf-win .rpt-toolbar select{width:auto}
+.kyc-inline>:where(input,select){flex:1}
+.kyc-inline>:where(input[type=date]){flex:none}
+.pf-win label{cursor:pointer}
+.pf-check{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.pf-btn{font-weight:700;border:1px solid #6b7b89;border-radius:2px;cursor:pointer;font-size:.92rem;padding:5px 14px;font-family:inherit}
+.pf-btn:disabled{opacity:.6;cursor:default}
+.pf-green{background:#6cf36c}.pf-pink{background:#ff8080}.pf-grey{background:#d9d9d9}.pf-dark{background:#7f7f7f;color:#fff}.pf-orange{background:#ff8000;color:#fff}.pf-lime{background:#22f022}.pf-deep{background:#1fb51f;color:#fff}
+.pf-note{font-size:.76rem;color:#6a5500;background:#fff8dc;border:1px solid #f0dd9c;padding:5px 8px;border-radius:3px;margin:0}
+.pf-dirty{color:#b00;font-size:.75rem;font-weight:700}
+.pf-list{border:1px solid #9aa7b3;overflow:auto;background:#fff}
+.pf-list button{display:block;width:100%;text-align:left;border:0;background:transparent;padding:1px 6px;font:inherit;cursor:pointer;white-space:nowrap}
+.pf-list button:hover{background:#e8f0fb}
+.pf-list button.is-on{background:#0a64d6;color:#fff}
+.pf-list p{margin:6px;color:#666}
+.pf-grid{border:1px solid #9aa7b3;overflow:auto;background:#fff}
+.pf-grid table{border-collapse:collapse;width:100%}
+.pf-grid th{position:sticky;top:0;background:#fff;text-align:left;padding:4px 8px;border-bottom:1px solid #c5ced6;font-weight:700}
+.pf-grid td{padding:2px 8px;color:#e00000;font-weight:600;white-space:nowrap}
+.pf-grid td:first-child,.pf-grid th:first-child{width:24px}
+
+/* P.F 19 & 10 C Form */
+.pf19{display:grid;grid-template-columns:minmax(250px,320px) minmax(300px,350px) minmax(0,1fr);gap:10px;padding:10px;align-items:start}
+.pf19-left{border:1px solid #9aa7b3;padding:8px;display:flex;flex-direction:column;gap:8px}
+.pf19-left fieldset{border:1px solid #c5ced6;padding:2px 10px 6px;display:flex;flex-direction:column;gap:2px}
+.pf19-left legend{font-size:.76rem}
+.pf-line{display:grid;grid-template-columns:105px minmax(0,1fr);align-items:center;gap:6px}
+.pf-line>b,.pf-line>span{font-weight:700}
+.pf19-mid{border:1px solid #9aa7b3;padding:8px;display:flex;flex-direction:column;gap:4px}
+.pf19-mid h3{text-align:center;font-size:.9rem;margin:0 0 2px}
+.pf19-mid .pf-line{grid-template-columns:118px minmax(0,1fr)}
+.pf19-mid .pf-line>span:first-child{white-space:nowrap;font-size:.78rem}
+.pf19-mid .pf-pair{display:grid;grid-template-columns:118px minmax(0,1fr) auto;align-items:center;gap:6px}
+.pf19-left .kyc-inline{flex-wrap:wrap}
+.pf19-mid textarea{height:44px;resize:vertical}
+.pf19-save{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:4px}
+.pf19-save button{display:inline-flex;align-items:center;gap:6px;background:#f2f2f2}
+.pf19-right{display:flex;flex-direction:column;gap:8px;min-width:0}
+.pf19-top{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}
+.pf19-kinds{display:grid;grid-template-columns:auto auto;gap:3px 14px;border:1px solid #e0e0e0;padding:4px 10px}
+.pf19-buttons{display:flex;flex-direction:column;gap:6px}
+.pf19-range{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.pf19-range .pf-find{width:110px}
+.pf19-right .pf-grid{height:360px;max-width:560px}
+
+/* PF Data Upload (KYC) */
+.kyc{background:#ffc48c}
+.kyc-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,480px);gap:12px;padding:10px;align-items:start}
+.kyc-main{display:flex;flex-direction:column;gap:8px;min-width:0}
+.kyc-top{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.kyc-order{display:inline-flex;gap:10px;align-items:center;background:#a8a8a8;color:#ffff4d;padding:3px 10px;font-weight:600}
+.kyc-pick{display:grid;grid-template-columns:120px minmax(0,1fr);gap:10px}
+.kyc-photo{width:120px;height:120px;background:#fff;border:1px solid #9aa7b3;display:grid;place-items:center;overflow:hidden;color:#888;font-size:.72rem;text-align:center}
+.kyc-photo-img{width:100%;height:100%;background:center/contain no-repeat}
+.kyc-pick .pf-list{height:96px;margin-top:4px}
+.kyc-fields{display:grid;grid-template-columns:150px minmax(0,1fr) 120px minmax(0,1fr);gap:5px 8px;align-items:center}
+.kyc-fields>b{font-weight:700}
+.kyc-fields .span3{grid-column:span 3}
+.kyc-fields .span2{grid-column:span 2}
+.kyc-fields .span2>b{min-width:max-content}
+.kyc-inline{display:flex;gap:6px;align-items:center}
+.kyc-inline input[type=date]{width:auto}
+.kyc-inline b{font-weight:700;white-space:nowrap}
+.kyc-docs{display:flex;flex-wrap:wrap;gap:6px 10px}
+.kyc-docs>div{display:flex;flex-direction:column;gap:2px;min-width:110px}
+.kyc-docs input[type=date]{width:auto}
+.kyc-side{display:flex;flex-direction:column;gap:10px}
+.kyc-buttons{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.kyc-buttons .pf-btn{padding:6px 8px}
+.kyc-opts{display:flex;flex-direction:column;gap:5px}
+.kyc-opts .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.kyc-opts input[type=date]{width:auto}
+.kyc-opts input.pfno{width:110px}
+.kyc-doclist{height:170px}
+.kyc-doclist label{display:flex;gap:6px;align-items:center;padding:1px 6px;white-space:nowrap}
+
+/* Printed claim forms */
+.pf-print h2{font-size:15px;margin:0 0 2px;text-align:center}
+.pf-print h3{font-size:12px;margin:0 0 6px;text-align:center;font-weight:600}
+.pf-print p{font-size:11px;margin:8px 0}
+.pf-sign{display:flex;justify-content:space-between;gap:12px;margin-top:34px;font-size:11px}
+.pf-box{border:1px solid #000;padding:6px 8px;margin-top:14px}
+
+@media (max-width:1100px){.pf19{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.pf19-right{grid-column:span 2}}
+@media (max-width:760px){.pf19,.kyc-body{grid-template-columns:minmax(0,1fr)}.pf19-right{grid-column:auto}.kyc-fields{grid-template-columns:120px minmax(0,1fr)}.kyc-fields .span3{grid-column:auto}.kyc-fields .span2{grid-column:1/-1}.kyc-inline{flex-wrap:wrap}.kyc-pick{grid-template-columns:minmax(0,1fr)}}

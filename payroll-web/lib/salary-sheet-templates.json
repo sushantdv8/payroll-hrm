@@ -1,0 +1,3009 @@
+[
+  {
+    "id": "comparison-sheet1",
+    "group": "comparison",
+    "name": "Sheet1",
+    "sheetName": "Sheet1",
+    "columns": [
+      {
+        "key": "A",
+        "label": "Sno.",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "B",
+        "label": "Paycode",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "C",
+        "label": "Card No.",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "D",
+        "label": "Employee Name",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "E",
+        "label": "Dep.Name",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "F",
+        "label": "Des. Name",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "G",
+        "label": "Rate",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "H",
+        "label": "Day",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "I",
+        "label": "OT Hrs.",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "J",
+        "label": "Tot.Earn.",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "K",
+        "label": "OT Amt.",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "L",
+        "label": "Total",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "M",
+        "label": "Rate",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "N",
+        "label": "Day",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "O",
+        "label": "OT Hrs.",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "P",
+        "label": "Tot.Earn.",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "Q",
+        "label": "OT Amt.",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "R",
+        "label": "Total",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "S",
+        "label": "Rate",
+        "numeric": true,
+        "date": false,
+        "formula": "M-G"
+      },
+      {
+        "key": "T",
+        "label": "Day",
+        "numeric": true,
+        "date": false,
+        "formula": "N-H"
+      },
+      {
+        "key": "U",
+        "label": "OT Hrs.",
+        "numeric": true,
+        "date": false,
+        "formula": "O-I"
+      },
+      {
+        "key": "V",
+        "label": "Tot.Earn.",
+        "numeric": true,
+        "date": false,
+        "formula": "P-J"
+      },
+      {
+        "key": "W",
+        "label": "OT Amt.",
+        "numeric": true,
+        "date": false,
+        "formula": "Q-K"
+      },
+      {
+        "key": "X",
+        "label": "Total",
+        "numeric": true,
+        "date": false,
+        "formula": "R-L"
+      }
+    ],
+    "persistent": [
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "M"
+    ],
+    "required": [
+      "G",
+      "H",
+      "I",
+      "J",
+      "K",
+      "L",
+      "M",
+      "N",
+      "O",
+      "P",
+      "Q",
+      "R"
+    ],
+    "dayColumn": "N",
+    "rateColumn": "M",
+    "netColumn": "R",
+    "links": {},
+    "headerRow": 4,
+    "sampleMonth": "2026-09",
+    "title": "KISHOR EXPORT",
+    "sampleFile": "kajal data.xlsx"
+  },
+  {
+    "id": "unit-unit-2",
+    "group": "unit",
+    "name": "UNIT-2",
+    "sheetName": "UNIT-2",
+    "columns": [
+      {
+        "key": "A",
+        "label": "S.No",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "B",
+        "label": "Card No.",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "C",
+        "label": "EMP.NAME",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "D",
+        "label": "Rate Total",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "E",
+        "label": "Pday",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "F",
+        "label": "Basic",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(D*E,0)"
+      },
+      {
+        "key": "G",
+        "label": "New Presant",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "H",
+        "label": "Amt",
+        "numeric": true,
+        "date": false,
+        "formula": "D*G"
+      },
+      {
+        "key": "I",
+        "label": "Holiday  Presant",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "J",
+        "label": "Amt",
+        "numeric": true,
+        "date": false,
+        "formula": "D*I"
+      },
+      {
+        "key": "K",
+        "label": "Lunch",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "L",
+        "label": "Amt",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(K*D/8,0)"
+      },
+      {
+        "key": "M",
+        "label": "Q/C Presant",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "N",
+        "label": "Amt",
+        "numeric": true,
+        "date": false,
+        "formula": "D*M"
+      },
+      {
+        "key": "O",
+        "label": "Gate Presant",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "P",
+        "label": "Amt",
+        "numeric": true,
+        "date": false,
+        "formula": "D*O"
+      },
+      {
+        "key": "Q",
+        "label": "Total Salary",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(P+N+L+J+H+F,0)"
+      },
+      {
+        "key": "R",
+        "label": "Advance",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "S",
+        "label": "Late Hours",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "T",
+        "label": "Amt",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(D*S/8,0)"
+      },
+      {
+        "key": "U",
+        "label": "Camra Abs",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "V",
+        "label": "Amt",
+        "numeric": true,
+        "date": false,
+        "formula": "D*U"
+      },
+      {
+        "key": "W",
+        "label": "Net Salary",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(Q-R-T-V,0)"
+      },
+      {
+        "key": "X",
+        "label": "PF",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "Y",
+        "label": "ESI",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "Z",
+        "label": "Earn Salary",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(W-X-Y,0)"
+      },
+      {
+        "key": "AA",
+        "label": "Remarks",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AB",
+        "label": "Remarks",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      }
+    ],
+    "persistent": [
+      "B",
+      "C",
+      "D"
+    ],
+    "required": [
+      "D",
+      "E",
+      "X",
+      "Y"
+    ],
+    "dayColumn": "E",
+    "rateColumn": "D",
+    "netColumn": "Z",
+    "links": {},
+    "headerRow": 2,
+    "sampleMonth": "2026-08",
+    "title": "UNIT 2 SALARY SHEET AUGUST-26",
+    "sampleFile": "AUGUST salary 2026 - Copy (1).xlsx"
+  },
+  {
+    "id": "unit-ware-house",
+    "group": "unit",
+    "name": "WARE HOUSE",
+    "sheetName": "WARE HOUSE",
+    "columns": [
+      {
+        "key": "A",
+        "label": "S.No",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "B",
+        "label": "Paycode",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "C",
+        "label": "EMP.NAME",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "D",
+        "label": "Rate Total",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "E",
+        "label": "P day",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "F",
+        "label": "Basic",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(D*E,0)"
+      },
+      {
+        "key": "G",
+        "label": "New Presant",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "H",
+        "label": "Amt",
+        "numeric": true,
+        "date": false,
+        "formula": "D*G"
+      },
+      {
+        "key": "I",
+        "label": "Holiday Presant",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "J",
+        "label": "Amt",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(D*I,0)"
+      },
+      {
+        "key": "K",
+        "label": "Lunch",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "L",
+        "label": "Amt",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(D*K/8,0)"
+      },
+      {
+        "key": "M",
+        "label": "Delhi Presant",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "N",
+        "label": "Amt",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(D*M,0)"
+      },
+      {
+        "key": "O",
+        "label": "Total Salary",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(N+L+J+H+F,0)"
+      },
+      {
+        "key": "P",
+        "label": "ABS",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "Q",
+        "label": "Amt",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(D*P,0)"
+      },
+      {
+        "key": "R",
+        "label": "Net Salary",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(O-Q,0)"
+      },
+      {
+        "key": "S",
+        "label": "Remarks",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      }
+    ],
+    "persistent": [
+      "B",
+      "C",
+      "D"
+    ],
+    "required": [
+      "D",
+      "E"
+    ],
+    "dayColumn": "E",
+    "rateColumn": "D",
+    "netColumn": "R",
+    "links": {},
+    "headerRow": 2,
+    "sampleMonth": "2026-08",
+    "title": "WARE HOUSE AGRA EPIP SHEET AUGUST-2026",
+    "sampleFile": "AUGUST salary 2026 - Copy (1).xlsx"
+  },
+  {
+    "id": "unit-traning",
+    "group": "unit",
+    "name": "Traning",
+    "sheetName": "Traning",
+    "columns": [
+      {
+        "key": "A",
+        "label": "S.N NO",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "B",
+        "label": "CARD NO",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "C",
+        "label": "EMPLOYEE'S NAME",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "D",
+        "label": "Rate Total",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "E",
+        "label": "P Day",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "F",
+        "label": "Basic",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(D*E,0)"
+      },
+      {
+        "key": "G",
+        "label": "Holiday Presant",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "H",
+        "label": "Amt",
+        "numeric": true,
+        "date": false,
+        "formula": "D*G"
+      },
+      {
+        "key": "I",
+        "label": "Lunch",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "J",
+        "label": "Amt",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(I*D/8,0)"
+      },
+      {
+        "key": "K",
+        "label": "Total Salary",
+        "numeric": true,
+        "date": false,
+        "formula": "J+H+F"
+      },
+      {
+        "key": "L",
+        "label": "ESI Dedu.",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(K*0.75%,0)"
+      },
+      {
+        "key": "M",
+        "label": "Net Salary",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(K-L,0)"
+      },
+      {
+        "key": "N",
+        "label": "Remarks",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      }
+    ],
+    "persistent": [
+      "B",
+      "C",
+      "D"
+    ],
+    "required": [
+      "D",
+      "E"
+    ],
+    "dayColumn": "E",
+    "rateColumn": "D",
+    "netColumn": "M",
+    "links": {},
+    "headerRow": 2,
+    "sampleMonth": "2026-08",
+    "title": "TRANING SALARY SHEET MONTH OF AUGUST -2026",
+    "sampleFile": "AUGUST salary 2026 - Copy (1).xlsx"
+  },
+  {
+    "id": "unit-kishor-salary-sheet",
+    "group": "unit",
+    "name": "KISHOR SALARY SHEET",
+    "sheetName": "KISHOR SALARY SHEET",
+    "columns": [
+      {
+        "key": "A",
+        "label": "S.No",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "B",
+        "label": "Card No",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "C",
+        "label": "EMP.NAME",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "D",
+        "label": "Rate Total",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "E",
+        "label": "Paid day",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "F",
+        "label": "Basic",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(D*E,0)"
+      },
+      {
+        "key": "G",
+        "label": "Holiday Presant",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "H",
+        "label": "Amt",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(D*G,0)"
+      },
+      {
+        "key": "I",
+        "label": "New Presant",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "J",
+        "label": "Amt",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(D*I,0)"
+      },
+      {
+        "key": "K",
+        "label": "Lunch Hours",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "L",
+        "label": "Amt",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(D*K/8,0)"
+      },
+      {
+        "key": "M",
+        "label": "Quality Presant",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "N",
+        "label": "Amt",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(D*M,0)"
+      },
+      {
+        "key": "O",
+        "label": "G/P Presant",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "P",
+        "label": "Amt",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(D*O,0)"
+      },
+      {
+        "key": "Q",
+        "label": "DP&RP",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "R",
+        "label": "Amt",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(D*Q,0)"
+      },
+      {
+        "key": "S",
+        "label": "Total Salary",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(R+P+N+L+J+H+F,0)"
+      },
+      {
+        "key": "T",
+        "label": "Adv",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "U",
+        "label": "Late Hours",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "V",
+        "label": "Amt",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(D*U/8,0)"
+      },
+      {
+        "key": "W",
+        "label": "Night Hours",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "X",
+        "label": "Amt",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(D*W/8,0)"
+      },
+      {
+        "key": "Y",
+        "label": "Camera Absent",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "Z",
+        "label": "Amt",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(D*Y,0)"
+      },
+      {
+        "key": "AA",
+        "label": "Earn Salary",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(S-T-V-X-Z,0)"
+      },
+      {
+        "key": "AB",
+        "label": "Remarks",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      }
+    ],
+    "persistent": [
+      "B",
+      "C",
+      "D"
+    ],
+    "required": [
+      "D",
+      "E"
+    ],
+    "dayColumn": "E",
+    "rateColumn": "D",
+    "netColumn": "AA",
+    "links": {},
+    "headerRow": 2,
+    "sampleMonth": "2026-08",
+    "title": "Kishor Salary Sheet Month Of AUGUST-2026",
+    "sampleFile": "AUGUST salary 2026 - Copy (1).xlsx"
+  },
+  {
+    "id": "unit3-5-days-sheet",
+    "group": "unit3",
+    "name": "5 days sheet",
+    "sheetName": "5 days sheet",
+    "columns": [
+      {
+        "key": "A",
+        "label": "SR.\nNO.",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "B",
+        "label": "CARD NO",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "C",
+        "label": "NAME OF EMPLOYEE",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "D",
+        "label": "Department",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "E",
+        "label": "JOB ROLE/ OPRATIONS",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "F",
+        "label": "FATHER'S/HUSBAND NAME",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "G",
+        "label": "GENDER",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "H",
+        "label": "CATEGORY \n( SC/ST\n/WOMEN)",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "I",
+        "label": "ADHAR NO OF EMPLOYEE",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "J",
+        "label": "DATE OF JOINING",
+        "numeric": false,
+        "date": true,
+        "formula": null
+      },
+      {
+        "key": "K",
+        "label": "CURRENT WORKING  (Y/N )",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "L",
+        "label": "WORKING PERIOD FROM",
+        "numeric": false,
+        "date": true,
+        "formula": null
+      },
+      {
+        "key": "M",
+        "label": "WORKING PERIOD TO",
+        "numeric": false,
+        "date": true,
+        "formula": null
+      },
+      {
+        "key": "N",
+        "label": "NO. OF MONTH",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "O",
+        "label": "EPF Y/N",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "P",
+        "label": "UAN NO",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "Q",
+        "label": "EPF NO.",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "R",
+        "label": "ESI     ( Y/N)",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "S",
+        "label": "ESI NO",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "T",
+        "label": "COMPLIANCE SALARY",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "U",
+        "label": "New incermint salary (Actual)",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "V",
+        "label": "Pday",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "W",
+        "label": "OT Upto June 26",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "X",
+        "label": "Paid OT",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "Y",
+        "label": "Debit. for (camera)",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "Z",
+        "label": "EL",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AA",
+        "label": "Previous 5 days Adjust",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AB",
+        "label": "5 Days Work",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AC",
+        "label": "Days Adjust",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AD",
+        "label": "NO. OF DAYS WORKING\n IN THIS\n MONTH",
+        "numeric": true,
+        "date": false,
+        "formula": "V+X-Y+Z+AA-AB-AC"
+      },
+      {
+        "key": "AE",
+        "label": "INC",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(U*AD,0)"
+      },
+      {
+        "key": "AF",
+        "label": "RATE OF SALARY",
+        "numeric": true,
+        "date": false,
+        "formula": "T"
+      },
+      {
+        "key": "AG",
+        "label": "GROSS SALARY PER MONTH",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(AF/DAYS*AD,0)"
+      },
+      {
+        "key": "AH",
+        "label": "EPF EMPLOYEE SHAIR",
+        "numeric": true,
+        "date": false,
+        "formula": "MROUND(AG*12%,1)"
+      },
+      {
+        "key": "AI",
+        "label": "EPF EMPLOYER SHAIR",
+        "numeric": true,
+        "date": false,
+        "formula": "AH"
+      },
+      {
+        "key": "AJ",
+        "label": "ESI EMPLOYEE SHAIR",
+        "numeric": true,
+        "date": false,
+        "formula": "MROUND(AG*0.75%,1)"
+      },
+      {
+        "key": "AK",
+        "label": "ESI EMPLOYER SHAIR",
+        "numeric": true,
+        "date": false,
+        "formula": "MROUND(AG*3.25%,1)"
+      },
+      {
+        "key": "AL",
+        "label": "ADVANCE",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AM",
+        "label": "Total Deduction",
+        "numeric": true,
+        "date": false,
+        "formula": "AL+AJ+AH"
+      },
+      {
+        "key": "AN",
+        "label": "TRANSFER AMOUNT",
+        "numeric": true,
+        "date": false,
+        "formula": "AG-AM"
+      }
+    ],
+    "persistent": [
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H",
+      "I",
+      "J",
+      "K",
+      "L",
+      "M",
+      "N",
+      "O",
+      "P",
+      "Q",
+      "R",
+      "S",
+      "T",
+      "U"
+    ],
+    "required": [
+      "T",
+      "U",
+      "V"
+    ],
+    "dayColumn": "V",
+    "rateColumn": "U",
+    "netColumn": "AN",
+    "links": {},
+    "headerRow": 2,
+    "sampleMonth": "2026-08",
+    "title": "KISHOR EXPORTS UNIT 3 SALARY SHEET (Aug 2026)",
+    "sampleFile": "UNIT 3 SALARY AUG 2026 FINAL (1).xlsx"
+  },
+  {
+    "id": "unit3-nats-complaince-salary",
+    "group": "unit3",
+    "name": "NATS  COMPLAINCE SALARY",
+    "sheetName": "NATS  COMPLAINCE SALARY",
+    "columns": [
+      {
+        "key": "A",
+        "label": "SR.\nNO.",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "B",
+        "label": "CARD NO",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "C",
+        "label": "NAME OF EMPLOYEE",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "D",
+        "label": "Department",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "E",
+        "label": "JOB ROLE/ OPRATIONS",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "F",
+        "label": "FATHER'S/HUSBAND NAME",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "G",
+        "label": "GENDER",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "H",
+        "label": "CATEGORY \n( SC/ST\n/WOMEN)",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "I",
+        "label": "ADHAR NO OF EMPLOYEE",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "J",
+        "label": "DATE OF JOINING",
+        "numeric": false,
+        "date": true,
+        "formula": null
+      },
+      {
+        "key": "K",
+        "label": "CURRENT WORKING  (Y/N )",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "L",
+        "label": "WORKING PERIOD FROM",
+        "numeric": false,
+        "date": true,
+        "formula": null
+      },
+      {
+        "key": "M",
+        "label": "WORKING PERIOD TO",
+        "numeric": false,
+        "date": true,
+        "formula": null
+      },
+      {
+        "key": "N",
+        "label": "NO. OF MONTH",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "O",
+        "label": "EPF Y/N",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "P",
+        "label": "UAN NO",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "Q",
+        "label": "EPF NO.",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "R",
+        "label": "ESI     ( Y/N)",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "S",
+        "label": "ESI NO",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "T",
+        "label": "COMPLIANCE SALARY",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "U",
+        "label": "New incermint salary (Actual)",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "V",
+        "label": "Pday",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "W",
+        "label": "OT Upto June 26",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "X",
+        "label": "Paid OT",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "Y",
+        "label": "Debit. for (camera)",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "Z",
+        "label": "EL",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AA",
+        "label": "Previous 5 days Adjust",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AB",
+        "label": "5 Days Work",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AC",
+        "label": "Days Adjust",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AD",
+        "label": "NO. OF DAYS WORKING\n IN THIS\n MONTH",
+        "numeric": true,
+        "date": false,
+        "formula": "V+X-Y+Z+AA-AB-AC"
+      },
+      {
+        "key": "AE",
+        "label": "INC",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(U*AD,0)"
+      },
+      {
+        "key": "AF",
+        "label": "RATE OF SALARY",
+        "numeric": true,
+        "date": false,
+        "formula": "T"
+      },
+      {
+        "key": "AG",
+        "label": "GROSS SALARY PER MONTH",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(AF/DAYS*AD,0)"
+      },
+      {
+        "key": "AH",
+        "label": "EPF EMPLOYEE SHAIR",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AI",
+        "label": "EPF EMPLOYER SHAIR",
+        "numeric": true,
+        "date": false,
+        "formula": "AH"
+      },
+      {
+        "key": "AJ",
+        "label": "ESI EMPLOYEE SHAIR",
+        "numeric": true,
+        "date": false,
+        "formula": "MROUND(AG*0.75%,1)"
+      },
+      {
+        "key": "AK",
+        "label": "ESI EMPLOYER SHAIR",
+        "numeric": true,
+        "date": false,
+        "formula": "MROUND(AG*3.25%,1)"
+      },
+      {
+        "key": "AL",
+        "label": "ADVANCE",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AM",
+        "label": "Total Deduction",
+        "numeric": true,
+        "date": false,
+        "formula": "AL+AJ+AH"
+      },
+      {
+        "key": "AN",
+        "label": "TRANSFER AMOUNT",
+        "numeric": true,
+        "date": false,
+        "formula": "AG-AM"
+      },
+      {
+        "key": "AO",
+        "label": "ACTUAL EARN",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AP",
+        "label": "DIFF",
+        "numeric": true,
+        "date": false,
+        "formula": "AG-AO"
+      },
+      {
+        "key": "AQ",
+        "label": "ACTUAL NETS",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AR",
+        "label": "DIFF",
+        "numeric": true,
+        "date": false,
+        "formula": "AN-AQ"
+      }
+    ],
+    "persistent": [
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H",
+      "I",
+      "J",
+      "K",
+      "L",
+      "M",
+      "N",
+      "O",
+      "P",
+      "Q",
+      "R",
+      "S",
+      "T",
+      "U"
+    ],
+    "required": [
+      "T",
+      "U",
+      "V"
+    ],
+    "dayColumn": "V",
+    "rateColumn": "U",
+    "netColumn": "AN",
+    "links": {
+      "AO": [
+        "unit3-nats-actual-salary",
+        "AG"
+      ],
+      "AQ": [
+        "unit3-nats-actual-salary",
+        "AN"
+      ]
+    },
+    "headerRow": 2,
+    "sampleMonth": "2026-08",
+    "title": "KISHOR EXPORTS UNIT 3 SALARY SHEET (Aug 2026)",
+    "sampleFile": "UNIT 3 SALARY AUG 2026 FINAL (1).xlsx"
+  },
+  {
+    "id": "unit3-nats-actual-salary",
+    "group": "unit3",
+    "name": "NATS ACTUAL SALARY",
+    "sheetName": "NATS ACTUAL SALARY ",
+    "columns": [
+      {
+        "key": "A",
+        "label": "SR.\nNO.",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "B",
+        "label": "CARD NO",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "C",
+        "label": "NAME OF EMPLOYEE",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "D",
+        "label": "Department",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "E",
+        "label": "JOB ROLE/ OPRATIONS",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "F",
+        "label": "FATHER'S/HUSBAND NAME",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "G",
+        "label": "GENDER",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "H",
+        "label": "CATEGORY \n( SC/ST\n/WOMEN)",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "I",
+        "label": "ADHAR NO OF EMPLOYEE",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "J",
+        "label": "DATE OF JOINING",
+        "numeric": false,
+        "date": true,
+        "formula": null
+      },
+      {
+        "key": "K",
+        "label": "CURRENT WORKING  (Y/N )",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "L",
+        "label": "WORKING PERIOD FROM",
+        "numeric": false,
+        "date": true,
+        "formula": null
+      },
+      {
+        "key": "M",
+        "label": "WORKING PERIOD TO",
+        "numeric": false,
+        "date": true,
+        "formula": null
+      },
+      {
+        "key": "N",
+        "label": "NO. OF MONTH",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "O",
+        "label": "EPF Y/N",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "P",
+        "label": "UAN NO",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "Q",
+        "label": "EPF NO.",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "R",
+        "label": "ESI     ( Y/N)",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "S",
+        "label": "ESI NO",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "T",
+        "label": "COMPLIANCE SALARY",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "U",
+        "label": "New incermint salary (Actual)",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "V",
+        "label": "Pday",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "W",
+        "label": "OT Upto June 26",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "X",
+        "label": "Paid OT",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "Y",
+        "label": "Debit. for (camera)",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "Z",
+        "label": "EL",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AA",
+        "label": "Previous 5 days Adjust",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AB",
+        "label": "5 Days Work",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AC",
+        "label": "Days Adjust",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AD",
+        "label": "NO. OF DAYS WORKING\n IN THIS\n MONTH",
+        "numeric": true,
+        "date": false,
+        "formula": "V+X-Y+Z+AA-AB-AC"
+      },
+      {
+        "key": "AE",
+        "label": "INC",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(U*AD,0)"
+      },
+      {
+        "key": "AF",
+        "label": "RATE OF SALARY",
+        "numeric": true,
+        "date": false,
+        "formula": "U"
+      },
+      {
+        "key": "AG",
+        "label": "GROSS SALARY PER MONTH",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(AF/DAYS*AD,0)"
+      },
+      {
+        "key": "AH",
+        "label": "EPF EMPLOYEE SHAIR",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AI",
+        "label": "EPF EMPLOYER SHAIR",
+        "numeric": true,
+        "date": false,
+        "formula": "AH"
+      },
+      {
+        "key": "AJ",
+        "label": "ESI EMPLOYEE SHAIR",
+        "numeric": true,
+        "date": false,
+        "formula": "MROUND(AG*0.75%,1)"
+      },
+      {
+        "key": "AK",
+        "label": "ESI EMPLOYER SHAIR",
+        "numeric": true,
+        "date": false,
+        "formula": "MROUND(AG*3.25%,1)"
+      },
+      {
+        "key": "AL",
+        "label": "ADVANCE",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AM",
+        "label": "Total Deduction",
+        "numeric": true,
+        "date": false,
+        "formula": "AL+AJ+AH"
+      },
+      {
+        "key": "AN",
+        "label": "TRANSFER AMOUNT",
+        "numeric": true,
+        "date": false,
+        "formula": "AG-AM"
+      }
+    ],
+    "persistent": [
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H",
+      "I",
+      "J",
+      "K",
+      "L",
+      "M",
+      "N",
+      "O",
+      "P",
+      "Q",
+      "R",
+      "S",
+      "T",
+      "U"
+    ],
+    "required": [
+      "T",
+      "U",
+      "V"
+    ],
+    "dayColumn": "V",
+    "rateColumn": "U",
+    "netColumn": "AN",
+    "links": {},
+    "headerRow": 2,
+    "sampleMonth": "2026-08",
+    "title": "KISHOR EXPORTS UNIT 3 SALARY SHEET (Aug 2026)",
+    "sampleFile": "UNIT 3 SALARY AUG 2026 FINAL (1).xlsx"
+  },
+  {
+    "id": "unit3-complaince-sheet",
+    "group": "unit3",
+    "name": "COMPLAINCE SHEET",
+    "sheetName": "COMPLAINCE SHEET",
+    "columns": [
+      {
+        "key": "A",
+        "label": "SR.\nNO.",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "B",
+        "label": "CARD NO",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "C",
+        "label": "NAME OF EMPLOYEE",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "D",
+        "label": "Department",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "E",
+        "label": "JOB ROLE/ OPRATIONS",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "F",
+        "label": "FATHER'S/HUSBAND NAME",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "G",
+        "label": "GENDER",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "H",
+        "label": "CATEGORY \n( SC/ST\n/WOMEN)",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "I",
+        "label": "ADHAR NO OF EMPLOYEE",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "J",
+        "label": "DATE OF JOINING",
+        "numeric": false,
+        "date": true,
+        "formula": null
+      },
+      {
+        "key": "K",
+        "label": "CURRENT WORKING  (Y/N )",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "L",
+        "label": "WORKING PERIOD FROM",
+        "numeric": false,
+        "date": true,
+        "formula": null
+      },
+      {
+        "key": "M",
+        "label": "WORKING PERIOD TO",
+        "numeric": false,
+        "date": true,
+        "formula": null
+      },
+      {
+        "key": "N",
+        "label": "NO. OF MONTH",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "O",
+        "label": "EPF Y/N",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "P",
+        "label": "UAN NO",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "Q",
+        "label": "EPF NO.",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "R",
+        "label": "ESI     ( Y/N)",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "S",
+        "label": "ESI NO",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "T",
+        "label": "COMPLIANCE SALARY",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "U",
+        "label": "New incermint salary (Actual)",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "V",
+        "label": "Pday",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "W",
+        "label": "OT Upto June 26",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "X",
+        "label": "Paid OT",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "Y",
+        "label": "Debit. for (camera)",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "Z",
+        "label": "EL",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AA",
+        "label": "Previous 5 day Apr 26",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AB",
+        "label": "Previous 5 day May 26",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AC",
+        "label": "Previous 5 day June 26",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AD",
+        "label": "Previous 5 day July 26",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AE",
+        "label": "5 Days Work",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AF",
+        "label": "Days Adjust",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AG",
+        "label": "NO. OF DAYS WORKING\n IN THIS\n MONTH",
+        "numeric": true,
+        "date": false,
+        "formula": "V+X-Y+Z+AD-AE-AF+AA+AB+AC"
+      },
+      {
+        "key": "AH",
+        "label": "INC",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(U*AG,0)"
+      },
+      {
+        "key": "AI",
+        "label": "RATE OF SALARY",
+        "numeric": true,
+        "date": false,
+        "formula": "T"
+      },
+      {
+        "key": "AJ",
+        "label": "GROSS SALARY PER MONTH",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(AI/DAYS*AG,0)"
+      },
+      {
+        "key": "AK",
+        "label": "EPF EMPLOYEE SHAIR",
+        "numeric": true,
+        "date": false,
+        "formula": "MROUND(AJ*12%,1)"
+      },
+      {
+        "key": "AL",
+        "label": "EPF EMPLOYER SHAIR",
+        "numeric": true,
+        "date": false,
+        "formula": "AK"
+      },
+      {
+        "key": "AM",
+        "label": "ESI EMPLOYEE SHAIR",
+        "numeric": true,
+        "date": false,
+        "formula": "MROUND(AJ*0.75%,1)"
+      },
+      {
+        "key": "AN",
+        "label": "ESI EMPLOYER SHAIR",
+        "numeric": true,
+        "date": false,
+        "formula": "MROUND(AJ*3.25%,1)"
+      },
+      {
+        "key": "AO",
+        "label": "ADVANCE Apr 26",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AP",
+        "label": "ADVANCE May 26",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AQ",
+        "label": "ADVANCE June 26",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AR",
+        "label": "ADVANCE July 26",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AS",
+        "label": "Total Deduction",
+        "numeric": true,
+        "date": false,
+        "formula": "AR+AM+AK+AO+AP+AQ"
+      },
+      {
+        "key": "AT",
+        "label": "TRANSFER AMOUNT",
+        "numeric": true,
+        "date": false,
+        "formula": "AJ-AS"
+      },
+      {
+        "key": "AU",
+        "label": "Actual Gross",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AV",
+        "label": "Gross Diff",
+        "numeric": true,
+        "date": false,
+        "formula": "AJ-AU"
+      },
+      {
+        "key": "AW",
+        "label": "Actual Net",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AX",
+        "label": "Net Diff",
+        "numeric": true,
+        "date": false,
+        "formula": "AT-AW"
+      }
+    ],
+    "persistent": [
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H",
+      "I",
+      "J",
+      "K",
+      "L",
+      "M",
+      "N",
+      "O",
+      "P",
+      "Q",
+      "R",
+      "S",
+      "T",
+      "U"
+    ],
+    "required": [
+      "T",
+      "U",
+      "V"
+    ],
+    "dayColumn": "V",
+    "rateColumn": "U",
+    "netColumn": "AT",
+    "links": {
+      "AU": [
+        "unit3-actual-sheet",
+        "AG"
+      ],
+      "AW": [
+        "unit3-actual-sheet",
+        "AN"
+      ]
+    },
+    "headerRow": 2,
+    "sampleMonth": "2026-08",
+    "title": "KISHOR EXPORTS UNIT 3 SALARY SHEET (Aug 2026)",
+    "sampleFile": "UNIT 3 SALARY AUG 2026 FINAL (1).xlsx"
+  },
+  {
+    "id": "unit3-actual-sheet",
+    "group": "unit3",
+    "name": "ACTUAL SHEET",
+    "sheetName": "ACTUAL SHEET",
+    "columns": [
+      {
+        "key": "A",
+        "label": "SR.\nNO.",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "B",
+        "label": "CARD NO",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "C",
+        "label": "NAME OF EMPLOYEE",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "D",
+        "label": "Department",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "E",
+        "label": "JOB ROLE/ OPRATIONS",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "F",
+        "label": "FATHER'S/HUSBAND NAME",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "G",
+        "label": "GENDER",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "H",
+        "label": "CATEGORY \n( SC/ST\n/WOMEN)",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "I",
+        "label": "ADHAR NO OF EMPLOYEE",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "J",
+        "label": "DATE OF JOINING",
+        "numeric": false,
+        "date": true,
+        "formula": null
+      },
+      {
+        "key": "K",
+        "label": "CURRENT WORKING  (Y/N )",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "L",
+        "label": "WORKING PERIOD FROM",
+        "numeric": false,
+        "date": true,
+        "formula": null
+      },
+      {
+        "key": "M",
+        "label": "WORKING PERIOD TO",
+        "numeric": false,
+        "date": true,
+        "formula": null
+      },
+      {
+        "key": "N",
+        "label": "NO. OF MONTH",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "O",
+        "label": "EPF Y/N",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "P",
+        "label": "UAN NO",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "Q",
+        "label": "EPF NO.",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "R",
+        "label": "ESI     ( Y/N)",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "S",
+        "label": "ESI NO",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "T",
+        "label": "COMPLIANCE SALARY",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "U",
+        "label": "New incermint salary (Actual)",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "V",
+        "label": "Pday",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "W",
+        "label": "OT Upto June 26",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "X",
+        "label": "Paid OT",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "Y",
+        "label": "Debit. for (camera)",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "Z",
+        "label": "EL",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AA",
+        "label": "Previous 5 days Adjust",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AB",
+        "label": "5 Days Work",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AC",
+        "label": "Days Adjust",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AD",
+        "label": "NO. OF DAYS WORKING\n IN THIS\n MONTH",
+        "numeric": true,
+        "date": false,
+        "formula": "V+X-Y+Z+AA-AB-AC"
+      },
+      {
+        "key": "AE",
+        "label": "INC",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(U*AD,0)"
+      },
+      {
+        "key": "AF",
+        "label": "RATE OF SALARY",
+        "numeric": true,
+        "date": false,
+        "formula": "U"
+      },
+      {
+        "key": "AG",
+        "label": "GROSS SALARY PER MONTH",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(AF/DAYS*AD,0)"
+      },
+      {
+        "key": "AH",
+        "label": "EPF EMPLOYEE SHAIR",
+        "numeric": true,
+        "date": false,
+        "formula": "MROUND(AG*12%,1)"
+      },
+      {
+        "key": "AI",
+        "label": "EPF EMPLOYER SHAIR",
+        "numeric": true,
+        "date": false,
+        "formula": "AH"
+      },
+      {
+        "key": "AJ",
+        "label": "ESI EMPLOYEE SHAIR",
+        "numeric": true,
+        "date": false,
+        "formula": "MROUND(AG*0.75%,1)"
+      },
+      {
+        "key": "AK",
+        "label": "ESI EMPLOYER SHAIR",
+        "numeric": true,
+        "date": false,
+        "formula": "MROUND(AG*3.25%,1)"
+      },
+      {
+        "key": "AL",
+        "label": "ADVANCE",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AM",
+        "label": "Total Deduction",
+        "numeric": true,
+        "date": false,
+        "formula": "AL+AJ+AH"
+      },
+      {
+        "key": "AN",
+        "label": "TRANSFER AMOUNT",
+        "numeric": true,
+        "date": false,
+        "formula": "AG-AM"
+      },
+      {
+        "key": "AO",
+        "label": "Attendence Sep 2026",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AP",
+        "label": "Additional amount",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      }
+    ],
+    "persistent": [
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H",
+      "I",
+      "J",
+      "K",
+      "L",
+      "M",
+      "N",
+      "O",
+      "P",
+      "Q",
+      "R",
+      "S",
+      "T",
+      "U"
+    ],
+    "required": [
+      "T",
+      "U",
+      "V"
+    ],
+    "dayColumn": "V",
+    "rateColumn": "U",
+    "netColumn": "AN",
+    "links": {},
+    "headerRow": 2,
+    "sampleMonth": "2026-08",
+    "title": "KISHOR EXPORTS UNIT 3 SALARY SHEET (Aug 2026)",
+    "sampleFile": "UNIT 3 SALARY AUG 2026 FINAL (1).xlsx"
+  },
+  {
+    "id": "subsidy-final-sheet",
+    "group": "subsidy",
+    "name": "FINAL SHEET",
+    "sheetName": "FINAL SHEET",
+    "columns": [
+      {
+        "key": "A",
+        "label": "SR.\nNO.",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "B",
+        "label": "CARD NO",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "C",
+        "label": "NAME OF EMPLOYEE",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "D",
+        "label": "JOB ROLE/ OPRATIONS",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "E",
+        "label": "GENDER",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "F",
+        "label": "CATEGORY \n( SC/ST\n/WOMEN)",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "G",
+        "label": "ADHAR NO OF EMPLOYEE",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "H",
+        "label": "DATE OF JOINING",
+        "numeric": false,
+        "date": true,
+        "formula": null
+      },
+      {
+        "key": "I",
+        "label": "CURRENT WORKING  (Y/N )",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "J",
+        "label": "WORKING PERIOD FROM",
+        "numeric": false,
+        "date": true,
+        "formula": null
+      },
+      {
+        "key": "K",
+        "label": "WORKING PERIOD TO",
+        "numeric": false,
+        "date": true,
+        "formula": null
+      },
+      {
+        "key": "L",
+        "label": "NO. OF MONTH",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "M",
+        "label": "EPF Y/N",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "N",
+        "label": "UAN NO",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "O",
+        "label": "EPF NO.",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "P",
+        "label": "EPF EMPLOYEE SHAIR",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "Q",
+        "label": "EPF EMPLOYER SHAIR",
+        "numeric": true,
+        "date": false,
+        "formula": "P"
+      },
+      {
+        "key": "R",
+        "label": "EPF CHALLAN NO",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "S",
+        "label": "EPF CHALLAN DATE",
+        "numeric": false,
+        "date": true,
+        "formula": null
+      },
+      {
+        "key": "T",
+        "label": "ESI     ( Y/N)",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "U",
+        "label": "ESI NO",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "V",
+        "label": "ESI EMPLOYEE SHAIR",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUNDUP(AA*0.75%,0)"
+      },
+      {
+        "key": "W",
+        "label": "ESI EMPLOYER SHAIR",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUNDUP(AA*3.25%,0)"
+      },
+      {
+        "key": "X",
+        "label": "PAN",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "Y",
+        "label": "NO. OF DAYS WORKING\n IN THIS\n MONTH",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "Z",
+        "label": "RATE PER MONTH",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AA",
+        "label": "GROSS SALARY PER MONTH",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(+Z/30/1*Y,0)"
+      },
+      {
+        "key": "AB",
+        "label": "CTC PER MONTH",
+        "numeric": true,
+        "date": false,
+        "formula": "ROUND(Z*22.477%,0)+Z"
+      },
+      {
+        "key": "AC",
+        "label": "TRANSFER AMOUNT",
+        "numeric": true,
+        "date": false,
+        "formula": "+AA-P-V"
+      },
+      {
+        "key": "AD",
+        "label": "ADVANCE",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AE",
+        "label": "DIFFERENCE",
+        "numeric": true,
+        "date": false,
+        "formula": "AC-AF-AD"
+      },
+      {
+        "key": "AF",
+        "label": "TOTAL PAID",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AG",
+        "label": "TOTAL TRANSFER",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AH",
+        "label": "PAYMENT DATE",
+        "numeric": false,
+        "date": true,
+        "formula": null
+      },
+      {
+        "key": "AI",
+        "label": "MODE OF SALARY PAYMENT",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AJ",
+        "label": "EMPLOYEE GENRATION (Y/N)",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AK",
+        "label": "YEAR OF CLAIM",
+        "numeric": true,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AL",
+        "label": "MONTH OF CLAIM",
+        "numeric": false,
+        "date": false,
+        "formula": null
+      },
+      {
+        "key": "AM",
+        "label": "EPF & ESIC EMPLOYER",
+        "numeric": true,
+        "date": false,
+        "formula": "+Q+W"
+      },
+      {
+        "key": "AN",
+        "label": "EPF & ESIC CLAIMED",
+        "numeric": true,
+        "date": false,
+        "formula": "+MINA(AM,1000)"
+      },
+      {
+        "key": "AO",
+        "label": "EMPLOYEE GENERATION CLAIMED ON GROSS SALARY",
+        "numeric": true,
+        "date": false,
+        "formula": "MIN(AA,CLAIMCAP)"
+      }
+    ],
+    "persistent": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H",
+      "I",
+      "J",
+      "L",
+      "M",
+      "N",
+      "O",
+      "T",
+      "U",
+      "X",
+      "Z",
+      "AJ"
+    ],
+    "required": [
+      "Y",
+      "Z",
+      "P",
+      "AF",
+      "AG"
+    ],
+    "dayColumn": "Y",
+    "rateColumn": "Z",
+    "netColumn": "AC",
+    "links": {},
+    "headerRow": 2,
+    "sampleMonth": "2026-04",
+    "title": "KISHOR EXPORTS ( UNIT - 2 ) SUBSIDY SHEET APRIL - 2026",
+    "sampleFile": "UNIT 2 FINAL SHEET - APRIL 2026 (1).xls"
+  }
+]

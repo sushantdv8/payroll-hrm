@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Biometric Attendance</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231d5fbf' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4'/%3E%3Cpath d='M14 13.12c0 2.38 0 6.38-1 8.88'/%3E%3Cpath d='M17.29 21.02c.12-.6.43-2.3.5-3.02'/%3E%3Cpath d='M2 12a10 10 0 0 1 18-6'/%3E%3Cpath d='M2 16h.01'/%3E%3Cpath d='M21.8 16c.2-2 .131-5.354 0-6'/%3E%3Cpath d='M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2'/%3E%3Cpath d='M8.65 22c.21-.66.45-1.32.57-2'/%3E%3Cpath d='M9 6.8a6 6 0 0 1 9 5.2v2'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/><path d="M14 13.12c0 2.38 0 6.38-1 8.88"/><path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/><path d="M2 12a10 10 0 0 1 18-6"/><path d="M2 16h.01"/><path d="M21.8 16c.2-2 .131-5.354 0-6"/><path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2"/><path d="M8.65 22c.21-.66.45-1.32.57-2"/><path d="M9 6.8a6 6 0 0 1 9 5.2v2"/></svg>
+      <div>
+        <h1>Biometric Attendance</h1>
+        <p>eSSL / ZKTeco machines · download only, nothing is changed on the machine</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <label class="inline">Auto download
+        <select id="auto">
+          <option value="0">Off</option>
+          <option value="15">Every 15 min</option>
+          <option value="30">Every 30 min</option>
+          <option value="60">Every hour</option>
+          <option value="120">Every 2 hours</option>
+        </select>
+      </label>
+      <button id="downloadAll" class="primary">Download from all machines</button>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="machines" aria-selected="true">Machines</button>
+    <button role="tab" data-tab="logs">Punch logs</button>
+    <button role="tab" data-tab="daily">Daily in / out</button>
+    <button role="tab" data-tab="users">Employees</button>
+    <button role="tab" data-tab="history">History</button>
+  </nav>
+
+  <main>
+    <section id="tab-machines" class="tab">
+      <div class="summary" id="summary"></div>
+      <div id="netWarning" class="notice" hidden></div>
+      <div class="bar">
+        <h2>Machine list</h2>
+        <button id="addDevice">+ Add machine</button>
+      </div>
+      <div class="table-wrap">
+        <table class="grid machines">
+          <thead><tr>
+            <th>Machine</th><th>IP address</th><th>Status</th><th>Model / Serial</th>
+            <th class="num">Users</th><th class="num">Fingerprints</th><th class="num">Logs on machine</th>
+            <th class="num">Logs saved here</th><th>Machine time</th><th>Last download</th><th></th>
+          </tr></thead>
+          <tbody id="devices"></tbody>
+        </table>
+      </div>
+      <p class="hint">The app must run on a PC on the same network as the machines (for these machines, a 192.168.11.x address).
+        If the eSSL / ZKTeco software is connected to a machine at the same time, close it first: most machines allow one connection at a time.</p>
+    </section>
+
+    <section id="tab-logs" class="tab" hidden>
+      <form class="filters" data-view="logs">
+        <label>From <input type="date" name="from"></label>
+        <label>To <input type="date" name="to"></label>
+        <label>Machine <select name="device"></select></label>
+        <label class="grow">Search <input type="search" name="q" placeholder="User ID or name"></label>
+        <button type="submit" class="primary">Show</button>
+        <a class="button" data-export="logs" href="#">Export CSV</a>
+      </form>
+      <div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Date</th><th>Time</th><th>User ID</th><th>Name</th><th>Machine</th><th>Verify mode</th><th>Punch</th></tr></thead>
+          <tbody id="logs"></tbody>
+        </table>
+      </div>
+      <div class="pager" id="logsPager"></div>
+    </section>
+
+    <section id="tab-daily" class="tab" hidden>
+      <form class="filters" data-view="daily">
+        <label>From <input type="date" name="from"></label>
+        <label>To <input type="date" name="to"></label>
+        <label>Machine <select name="device"></select></label>
+        <label class="grow">Search <input type="search" name="q" placeholder="User ID or name"></label>
+        <button type="submit" class="primary">Show</button>
+        <a class="button" data-export="daily" href="#">Export CSV</a>
+      </form>
+      <p class="hint">First punch of the day is In, last punch is Out, across all machines (same User ID = same person).</p>
+      <div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Date</th><th>User ID</th><th>Name</th><th>First in</th><th>Last out</th><th class="num">Hours</th><th class="num">Punches</th><th>Machines</th></tr></thead>
+          <tbody id="daily"></tbody>
+        </table>
+      </div>
+      <div class="pager" id="dailyPager"></div>
+    </section>
+
+    <section id="tab-users" class="tab" hidden>
+      <form class="filters" data-view="users">
+        <label>Machine <select name="device"></select></label>
+        <label class="grow">Search <input type="search" name="q" placeholder="User ID or name"></label>
+        <button type="submit" class="primary">Show</button>
+        <a class="button" data-export="users" href="#">Export CSV</a>
+      </form>
+      <div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>User ID</th><th>Name</th><th>Privilege</th><th>Card</th><th>Machine</th><th>Last punch</th></tr></thead>
+          <tbody id="users"></tbody>
+        </table>
+      </div>
+      <div class="pager" id="usersPager"></div>
+    </section>
+
+    <section id="tab-history" class="tab" hidden>
+      <div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Started</th><th>Machine</th><th>Type</th><th>Result</th><th class="num">Users</th><th class="num">Logs read</th><th class="num">New logs</th><th class="num">Seconds</th></tr></thead>
+          <tbody id="history"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="deviceDialog">
+    <form method="dialog" id="deviceForm">
+      <h2 id="deviceTitle">Add machine</h2>
+      <label>Machine name <input name="name" required maxlength="40" placeholder="KE1"></label>
+      <div class="row">
+        <label class="grow">IP address <input name="ip" required placeholder="192.168.11.180"></label>
+        <label>Port <input name="port" type="number" min="1" max="65535" value="4370"></label>
+      </div>
+      <div class="row">
+        <label>Connection
+          <select name="protocol">
+            <option value="auto">Auto (TCP, then UDP)</option>
+            <option value="tcp">TCP</option>
+            <option value="udp">UDP</option>
+          </select>
+        </label>
+        <label>Comm Key <input name="commKey" type="number" min="0" max="999999" value="0"></label>
+        <label>Machine No. <input name="machineNo" type="number" min="1" value="1"></label>
+      </div>
+      <p class="hint">Comm Key is the machine's communication password (Menu &gt; Comm). Leave 0 if none is set.</p>
+      <p class="error" id="deviceError" hidden></p>
+      <div class="actions">
+        <button value="cancel" formnovalidate>Cancel</button>
+        <button value="save" class="primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toasts" aria-live="polite"></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

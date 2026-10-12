@@ -1,0 +1,42 @@
+# Only source code goes to GitHub. Everything not listed below is ignored (data, backups, caches, setups, tools).
+/*
+!/.gitignore
+!/payroll-web/
+!/installer/
+!/biometric-web/
+!/db-gateway/
+!/Start Payroll.cmd
+!/Stop Payroll.cmd
+!/Stop Payroll.ps1
+
+# never, anywhere
+node_modules/
+.next/
+.vinext/
+.wrangler/
+dist/
+build/
+.sites-runtime/
+.openai/
+.env
+.env.*
+.dev.vars*
+*.pem
+*.key
+*.sqlite
+*.sqlite-*
+*.db
+*.bak
+*.exe
+*.zip
+*.log
+*.tsbuildinfo
+/payroll-web/.git-old-history/
+/installer/stage/
+/installer/out/
+/biometric-web/data/
+/biometric-web/*.log
+
+# login password hashes and a test script containing real passwords: keep local only
+/installer/login-gate.mjs
+/payroll-web/scripts/test-hrm-api.cjs

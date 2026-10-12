@@ -1,0 +1,42 @@
+/* Reports › Bonus: the 'Bonus calculation' tab (grey form of the original) in front of the shared report form */
+.bon-reports{font-family:Tahoma,Verdana,Segoe UI,sans-serif}
+.bon-form{position:relative}
+.bon-form .rpt-tabs{padding-left:144px}
+/* Drawn over the left end of the ReportForm's tab strip so the three tabs read as one strip */
+.bon-calc-tab{position:absolute;left:7px;top:5px;width:132px;font-size:.8rem;padding:4px 0;border:1px solid #c5ced6;border-bottom:none;background:#e3e8ed;border-radius:4px 4px 0 0;cursor:pointer;color:#111;z-index:1}
+.bon-calc-tab:hover{background:#f2f4f6}
+.bon-calc{background:#d4d0c8;padding:16px 18px 18px;display:flex;flex-direction:column;gap:12px;min-height:420px}
+.bon-top{display:flex;flex-direction:column;gap:12px;align-items:flex-start}
+.bon-params{display:grid;grid-template-columns:repeat(2,max-content);gap:8px 28px}
+.bon-params label,.bon-months label{display:flex;align-items:center;gap:8px;font-size:.86rem;font-weight:700}
+.bon-params span{min-width:92px}
+.bon-params input{width:120px;border:1px solid #7a7a7a;border-radius:0;padding:3px 6px;font:inherit;font-weight:400;text-align:right;background:#fff}
+.bon-params input:focus,.bon-months select:focus{outline:2px solid #0a64d6}
+.bon-check{display:flex;align-items:center;gap:6px;font-size:.86rem;font-weight:700;cursor:pointer}
+.bon-months{display:flex;flex-wrap:wrap;gap:8px 28px}
+.bon-months span{min-width:92px}
+.bon-months select{min-width:120px;border:1px solid #7a7a7a;padding:3px 6px;font:inherit;font-weight:700;background:#fff}
+.bon-buttons{display:flex;flex-wrap:wrap;gap:12px}
+.bon-buttons button{min-width:120px;min-height:46px;padding:6px 14px;font:inherit;font-size:1rem;font-weight:700;color:#111;background:#e4e2dc;border:2px outset #f6f5f2;cursor:pointer}
+.bon-buttons button:active:not(:disabled){border-style:inset}
+.bon-buttons button:hover:not(:disabled){border-color:#9cc6ee;background:#ececec}
+.bon-buttons button:disabled{opacity:.55;cursor:default}
+.bon-calc .rpt-note{margin:0;max-width:900px}
+.bon-status{margin:0;font-size:.82rem;color:#123;background:#fff;border:1px solid #b9b9b9;padding:6px 10px;max-width:900px}
+.bon-result{background:#fff;border:1px solid #9aa7b3;padding:8px;min-width:0}
+.bon-result .rpt-grid-head{flex-wrap:wrap;gap:8px 18px;font-size:.82rem}
+.bon-result .rpt-grid-head label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.bon-grid{max-height:430px;overflow:auto;border:1px solid #9aa7b3}
+.bon-grid table{border-collapse:collapse;width:100%;font-size:.82rem}
+.bon-grid th{position:sticky;top:0;background:#ff8c8c;color:#5a0000;text-align:left;padding:3px 8px;border:1px solid #d77;white-space:nowrap;font-weight:700}
+.bon-grid td{padding:2px 8px;border-bottom:1px solid #eee;white-space:nowrap;color:#e00000;font-weight:600}
+.bon-grid td:first-child{width:24px}
+.bon-grid .num{text-align:right}
+.bon-grid tfoot td{position:sticky;bottom:0;background:#f3f3f3;color:#111;font-weight:700;border-top:1px solid #9aa7b3}
+.bon-empty{text-align:center;color:#555!important;font-weight:400!important;padding:14px!important}
+/* Form C pages: 17 statutory columns with their numbers under the headings */
+.rpt-paper .bon-formc th{font-size:9px;font-weight:700;vertical-align:bottom;white-space:normal;text-align:center}
+.bon-formc td{font-size:10px;height:9mm}
+.bon-colno{border-top:1px solid #000;margin-top:2px;font-weight:400;text-align:center}
+.bon-sign-row{display:flex;justify-content:space-between;margin-top:18mm;font-size:12px}
+@media (max-width:640px){.bon-params{grid-template-columns:max-content}.bon-calc{padding:12px}.bon-buttons button{min-width:0;flex:1 1 100px}.bon-form .rpt-tabs{padding-left:144px;flex-wrap:wrap}}

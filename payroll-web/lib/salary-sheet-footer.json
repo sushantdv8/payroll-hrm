@@ -1,0 +1,106 @@
+{
+  "comparison-sheet1": [],
+  "unit-unit-2": [
+    {
+      "address": "AA59",
+      "label": "Additional amount",
+      "identifier": false
+    }
+  ],
+  "unit-ware-house": [],
+  "unit-traning": [],
+  "unit-kishor-salary-sheet": [],
+  "unit3-5-days-sheet": [],
+  "unit3-nats-complaince-salary": [],
+  "unit3-nats-actual-salary": [],
+  "unit3-complaince-sheet": [
+    {
+      "address": "AT1035",
+      "label": "TRANSFER AMOUNT",
+      "identifier": false
+    },
+    {
+      "address": "AT1036",
+      "label": "TRANSFER AMOUNT",
+      "identifier": false
+    }
+  ],
+  "unit3-actual-sheet": [
+    {
+      "address": "T1011",
+      "label": "COMPLIANCE SALARY",
+      "identifier": false
+    },
+    {
+      "address": "U1011",
+      "label": "New incermint salary (Actual)",
+      "identifier": false
+    },
+    {
+      "address": "AD1011",
+      "label": "NO. OF DAYS WORKING\n IN THIS\n MONTH",
+      "identifier": false
+    },
+    {
+      "address": "AE1011",
+      "label": "INC",
+      "identifier": false
+    },
+    {
+      "address": "AF1011",
+      "label": "RATE OF SALARY",
+      "identifier": false
+    },
+    {
+      "address": "AG1011",
+      "label": "GROSS SALARY PER MONTH",
+      "identifier": false
+    },
+    {
+      "address": "AN1011",
+      "label": "TRANSFER AMOUNT",
+      "identifier": false
+    },
+    {
+      "address": "E1018",
+      "label": "Gross as per",
+      "identifier": false
+    },
+    {
+      "address": "B1023",
+      "label": "CARD NO",
+      "identifier": true
+    },
+    {
+      "address": "B1024",
+      "label": "CARD NO",
+      "identifier": true
+    },
+    {
+      "address": "B1025",
+      "label": "CARD NO",
+      "identifier": true
+    },
+    {
+      "address": "B1026",
+      "label": "CARD NO",
+      "identifier": true
+    },
+    {
+      "address": "B1027",
+      "label": "CARD NO",
+      "identifier": true
+    },
+    {
+      "address": "B1028",
+      "label": "CARD NO",
+      "identifier": true
+    },
+    {
+      "address": "B1029",
+      "label": "CARD NO",
+      "identifier": true
+    }
+  ],
+  "subsidy-final-sheet": []
+}

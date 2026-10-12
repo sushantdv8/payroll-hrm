@@ -1,0 +1,41 @@
+/* Transaction › Biometric Machine Setup and the Biometric Fetch dialog of Time Updation (classic window, as time-office.css). */
+.bio-body{display:flex;flex-direction:column;gap:10px;padding:10px;font-size:.84rem}
+.bio-connect{gap:6px 10px}
+.bio-url{display:flex;align-items:center;gap:6px;font-weight:700;flex:1 1 320px}
+.bio-url input{flex:1;min-width:0;font-family:Consolas,'Courier New',monospace}
+.bio-link{text-decoration:none;display:inline-block}
+.bio-connect .to-note{flex-basis:100%}
+.bio-msg{flex-basis:100%;margin:0;padding:6px 8px;border-radius:3px;font-weight:700;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.bio-msg.is-ok{background:#e6f6e6;color:#145214;border:1px solid #9ccf9c}
+.bio-msg.is-bad{background:#fdeaea;color:#8a0000;border:1px solid #e3a3a3}
+.bio-tabs{display:flex;flex-wrap:wrap;gap:4px;border-bottom:2px solid #ff8c8c;align-items:flex-end}
+.bio-tabs button[role=tab]{border:1px solid #d77;border-bottom:0;background:#ffd6d6;color:#5a0000;font-weight:700;padding:5px 14px;border-radius:4px 4px 0 0;cursor:pointer;font-family:inherit;font-size:.84rem}
+.bio-tabs button[role=tab].is-active{background:#ff8c8c;color:#fff}
+.bio-go{margin-left:auto;margin-bottom:4px}
+.bio-pane{display:flex;flex-direction:column;gap:8px;min-width:0}
+.bio-bar label{font-weight:700}
+.bio-bar select{margin-left:6px}
+.bio-search{flex:1 1 200px;max-width:280px}
+.bio-scroll{max-height:560px;overflow:auto;border:1px solid #c6ced6}
+.bio-table{border-collapse:collapse;width:100%;min-width:760px;font-size:.8rem;background:#ffffc4}
+.bio-table td b{white-space:nowrap}
+.bio-unknown .bio-table{min-width:0}
+.bio-table th{position:sticky;top:0;z-index:1;background:#ff8c8c;color:#5a0000;font-weight:700;padding:3px 6px;border:1px solid #d77;text-align:left;white-space:nowrap}
+.bio-table td{border:1px solid #e3d79a;padding:2px 6px;vertical-align:top}
+.bio-table .num{text-align:right}.bio-table .c{text-align:center}
+.bio-table tr.is-off td{color:#777;background:#f3f3e4}
+.bio-table tr.is-bad td{background:#ffe9e0}
+.bio-ok{color:#145214;font-weight:700}.bio-bad{color:#a00000;font-weight:700}
+.bio-small{font-size:.72rem;font-weight:400;color:#7a2020;max-width:320px;white-space:normal}
+.bio-warn{color:#a05a00;font-size:.74rem}
+.bio-change{display:flex;gap:4px;align-items:center;white-space:nowrap}
+.bio-change input{width:150px}
+/* Biometric Fetch dialog */
+.bio-fetch{display:flex;flex-direction:column;gap:10px;font-size:.86rem}
+.bio-fetch .to-row label{font-weight:700}
+.bio-fetch .to-input{width:64px}
+.bio-sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px}
+.bio-sum span{border:1px solid #d9dee3;border-radius:3px;padding:5px 8px;background:#fafbfc}
+.bio-sum b{display:block;font-size:1.05rem;color:#0a4a8a}
+.bio-unknown{max-height:180px;overflow:auto;border:1px solid #e3d79a}
+@media (max-width:700px){.bio-go{margin-left:0}.bio-change input{width:110px}}

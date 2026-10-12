@@ -1,0 +1,15 @@
+{
+  "name": "biometric-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Downloads users and punch logs from eSSL / ZKTeco biometric machines (port 4370) into a local web app",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "start": "node --no-warnings server.mjs",
+    "demo": "node --no-warnings tools/demo.mjs",
+    "test": "node tools/zk-test.mjs"
+  }
+}

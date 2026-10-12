@@ -1,0 +1,1 @@
+{"name":"payroll-db-gateway","version":"1.0.0","private":true,"type":"module","description":"PostgreSQL gateway for Payroll Workspace","scripts":{"start":"node server.mjs","test":"node test/run.mjs"},"engines":{"node":">=22"},"dependencies":{"@electric-sql/pglite":"^0.5.9","pg":"^8.23.1"}}
