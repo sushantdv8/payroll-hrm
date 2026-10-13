@@ -35,7 +35,7 @@ and `db-gateway`). There is no Worker deployment to hand over. (The `wrangler` c
 
 * Linux VPS (Ubuntu 22.04 / 24.04 or similar), Plesk Obsidian with nginx. Not suitable for shared hosting (needs long-running Node.js services).
 * 2 vCPU, 4 GB RAM (2 GB is the minimum), 20 GB disk. Measured with the real data: PostgreSQL database 0.6 GB, app 100-300 MB RAM (more for a moment while a large report is produced); the gateway is a small Node.js process.
-* Node.js 22.13 or newer (22 LTS or 24); npm. PostgreSQL 14 or newer (tested on 17.11). Git.
+* Node.js 24 (tested); the project declares 22.13 or newer, but it has not been run on Node 22 yet. npm. PostgreSQL 14 or newer declared, tested on 17.11. Git.
 * Outbound internet only while installing packages and for the Let's Encrypt certificate. At run time the software calls **no** external service.
 
 ## 3. Environment variables and configuration files
@@ -61,8 +61,8 @@ Generate a secret: `openssl rand -hex 32`. Other configuration: `payroll-web/.op
 
 ```bash
 sudo apt update && sudo apt install -y git postgresql curl
-# Node.js 22 LTS (or 24): install from https://nodejs.org or the NodeSource repository, then check:
-node -v        # must be v22.13 or newer
+# Node.js 24 (tested; 22.13 or newer is declared): install from https://nodejs.org or the NodeSource repository, then check:
+node -v        # v24.x recommended, never older than v22.13
 sudo useradd -r -m -d /opt/payroll -s /usr/sbin/nologin payroll
 sudo mkdir -p /etc/payroll /var/backups/payroll && sudo chown payroll:payroll /var/backups/payroll
 ```
