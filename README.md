@@ -15,7 +15,7 @@ Web application for employee records, attendance, salary sheets, PF/ESIC forms, 
 
 ## Requirements
 
-* Node.js 24 or newer (`node:sqlite` is used by the tools)
+* Node.js 22.13 or newer (24 recommended; `node:sqlite` is used by the migration tools)
 * PostgreSQL 14+ (only for the server/PostgreSQL setup)
 
 **Hosting it on a server (VPS / Plesk): see [docs/DEPLOYMENT-GUIDE.md](docs/DEPLOYMENT-GUIDE.md)** - requirements, environment variables, install steps, HTTPS, backups and restore, third-party list, what is still open.
