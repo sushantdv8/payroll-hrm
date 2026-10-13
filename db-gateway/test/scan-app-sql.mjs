@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { toPg } from '../lib/translate.mjs';
-import { pgliteDriver } from '../lib/drivers.mjs';
+import { testDriver } from './driver.mjs';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const web = process.argv[2] || path.join(root, '..', 'payroll-web');
@@ -82,7 +82,7 @@ for (const f of files) {
   }
 }
 
-const driver = await pgliteDriver();
+const driver = await testDriver();
 await driver.exec(fs.readFileSync(path.join(root, 'schema.sql'), 'utf8'));
 let ok = 0; const bad = [];
 const seen = new Set();

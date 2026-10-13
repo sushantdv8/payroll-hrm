@@ -1,4 +1,4 @@
-﻿# Only source code goes to GitHub. Everything not listed below is ignored (data, backups, caches, setups, tools).
+# Only source code goes to GitHub. Everything not listed below is ignored (data, backups, caches, setups, tools).
 /*
 !/.gitignore
 !/README.md
@@ -16,7 +16,6 @@ node_modules/
 .vinext/
 .wrangler/
 dist/
-build/
 .sites-runtime/
 .openai/
 .env

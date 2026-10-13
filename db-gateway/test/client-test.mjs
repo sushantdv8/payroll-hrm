@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { createGateway } from '../lib/gateway.mjs';
-import { pgliteDriver } from '../lib/drivers.mjs';
+import { testDriver } from './driver.mjs';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const web = path.join(root, '..', 'payroll-web');
@@ -22,7 +22,7 @@ const tmp = path.join(os.tmpdir(), `pg-client-${process.pid}.mjs`);
 fs.writeFileSync(tmp, js);
 const { pgDatabase, pgBucket } = await import(pathToFileURL(tmp).href);
 
-const driver = await pgliteDriver();
+const driver = await testDriver();
 await driver.exec(fs.readFileSync(path.join(root, 'schema.sql'), 'utf8'));
 const SECRET = 'client-test-secret-123456';
 const handle = createGateway({ driver, secret: SECRET });

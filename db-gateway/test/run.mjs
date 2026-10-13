@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { toPg } from '../lib/translate.mjs';
 import { createGateway } from '../lib/gateway.mjs';
-import { pgliteDriver } from '../lib/drivers.mjs';
+import { testDriver } from './driver.mjs';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 let passed = 0;
@@ -26,7 +26,7 @@ assert.equal(toPg('WHERE k LIKE ?'), 'WHERE k ILIKE $1'); ok('LIKE ignores case 
 assert.equal(toPg("SELECT substr(k,1,instr(k,'|')-1)"), "SELECT substr(k,1,strpos(k, '|')-1)"); ok('instr');
 
 // ---- the real statements, over HTTP ----
-const driver = await pgliteDriver();
+const driver = await testDriver();
 await driver.exec(fs.readFileSync(path.join(root, 'schema.sql'), 'utf8'));
 const SECRET = 'test-secret-0123456789';
 const server = http.createServer((req, res) => { void handle(req, res); });

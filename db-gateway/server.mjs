@@ -20,7 +20,17 @@ if (!secret || secret.length < 16) { console.error('GATEWAY_SECRET is not set (u
 
 // DATABASE_URL=pglite:<folder> runs PostgreSQL inside Node.js (PGlite) - for trying things out without a server, not for production
 const driver = url.startsWith('pglite:') ? await pgliteDriver(url.slice(7) || undefined) : await pgDriver(url);
+// after a server reboot PostgreSQL may still be starting: wait for it (up to a minute) instead of giving up
+for (let attempt = 1; ; attempt++) {
+  try { await driver.exec('SELECT 1'); break; }
+  catch (error) {
+    if (attempt >= 30) { console.error('Cannot reach PostgreSQL:', error.message); process.exit(1); }
+    console.log(`Waiting for PostgreSQL (${error.message}) ...`);
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+}
 await driver.exec(fs.readFileSync(path.join(root, 'schema.sql'), 'utf8'));
+process.on('unhandledRejection', (error) => console.error('Unhandled error:', error));
 const handle = createGateway({ driver, secret });
 const server = http.createServer((req, res) => { void handle(req, res); });
 // Keep idle connections open much longer than the app's own pool does, so the app never sends on a connection we just closed.
