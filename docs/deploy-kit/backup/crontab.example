@@ -1,0 +1,4 @@
+# crontab of the "payroll" user:   sudo -u payroll crontab -e
+# Every night at 02:00; the output is kept in a log next to the backups.
+# (make the script executable once:  chmod +x /opt/payroll/app/docs/deploy-kit/backup/backup-payroll.sh)
+0 2 * * *  /opt/payroll/app/docs/deploy-kit/backup/backup-payroll.sh >> /var/backups/payroll/backup.log 2>&1

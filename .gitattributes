@@ -1,0 +1,4 @@
+# keep Unix line endings for files that run on Linux
+*.sh text eol=lf
+*.service text eol=lf
+docs/deploy-kit/** text eol=lf

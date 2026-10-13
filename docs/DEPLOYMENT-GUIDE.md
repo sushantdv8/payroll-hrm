@@ -52,7 +52,7 @@ Keep them in files readable only by the service user (for example `/etc/payroll/
 | `DB_GATEWAY_SECRET` | app | The same value as `GATEWAY_SECRET`. |
 | `PORT` | app | Port of the web app, for example 3000 (or `-p 3000` on the command line). Keep it on `127.0.0.1`. |
 
-Generate a secret: `openssl rand -hex 32`. Other configuration: `payroll-web/.openai/hosting.json` (binding names, needed by the build),
+Generate a secret: `openssl rand -hex 32`. **Ready-made, copy-and-fill templates of every file in this guide (the two env files, the two systemd services, the Plesk nginx block, the database creation script, the backup script and its cron line) are in [deploy-kit/](deploy-kit/README.md); the full variable list is in [deploy-kit/ENVIRONMENT-VARIABLES.md](deploy-kit/ENVIRONMENT-VARIABLES.md).** Other configuration: `payroll-web/.openai/hosting.json` (binding names, needed by the build),
 `db-gateway/schema.sql` (database tables). There is nothing else to configure.
 
 ## 4. Installing on the server (Ubuntu example)
@@ -189,7 +189,7 @@ year chosen at sign-in; the screens use it to open the right data.
 5. Apache & nginx Settings > "Additional nginx directives" (menus differ slightly between Plesk versions):
 
 ```nginx
-location / {
+location ^~ / {                              # (^~ avoids a clash with Plesk's own location /; see deploy-kit/nginx)
     proxy_pass http://127.0.0.1:3000;        # the sign-in layer once it exists; the app itself while testing locally
     proxy_http_version 1.1;
     proxy_set_header Host $host;
@@ -208,6 +208,11 @@ location / {
 Either restore the database backup supplied at handover (section 5), or copy the existing Windows data once with
 `node db-gateway/migrate-from-sqlite.mjs <state folder>` (about 5 minutes for 20,000 employees; see `db-gateway/README.md`).
 The original and the editable workspaces use the same table names: put the second one in its own database.
+
+**Restore with `--clean --if-exists`, always.** It was tried both ways: a plain `pg_restore` into a database whose tables already
+exist (for example because the gateway had started once and created them empty) printed 54 errors and left the salary table with 0 rows,
+silently; with `--clean --if-exists` the same restore had no errors and every row. It is also harmless on an empty database.
+After a restore compare the row counts with the list that comes with the backup (`RESTORE.txt`), then run `ANALYZE;`.
 
 ### 4.9 Staging check before go-live
 
@@ -233,7 +238,7 @@ Restore into an empty database (use a new database to test, or after stopping th
 
 ```bash
 sudo -u postgres psql -c "CREATE DATABASE payroll_restore OWNER payroll"
-pg_restore -h 127.0.0.1 -U payroll -d payroll_restore --no-owner /var/backups/payroll/payroll_YYYY-MM-DD.dump
+pg_restore -h 127.0.0.1 -U payroll -d payroll_restore --no-owner --clean --if-exists /var/backups/payroll/payroll_YYYY-MM-DD.dump
 ```
 
 Everything the software stores (records, salaries, photos, HR documents, imported originals) is inside this one database. Also keep copies of `/etc/payroll/*.env`

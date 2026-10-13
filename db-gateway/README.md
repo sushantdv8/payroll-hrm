@@ -80,7 +80,7 @@ the same table names). The old SQLite files are only read, never changed.
 
 ```
 pg_dump -Fc payroll > payroll_YYYYMMDD.dump          (94 s, 240 MB for the data above)
-pg_restore -d payroll_new --no-owner payroll_YYYYMMDD.dump   (71 s)
+pg_restore -d payroll_new --no-owner --clean --if-exists payroll_YYYYMMDD.dump   (71 s; keep --clean --if-exists: a plain restore into a database that already has the tables can leave some of them empty)
 ```
 
 Run the dump every night (task scheduler / cron) and keep copies off the server; try a restore into an empty database now and

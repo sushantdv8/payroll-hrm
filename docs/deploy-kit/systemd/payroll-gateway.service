@@ -1,0 +1,23 @@
+# /etc/systemd/system/payroll-gateway.service
+# Install:  sudo cp payroll-gateway.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now payroll-gateway
+# Check:    systemctl status payroll-gateway ; journalctl -u payroll-gateway -f ; curl -s http://127.0.0.1:5790/health
+# Paths assume the code is in /opt/payroll/app and Node.js is /usr/bin/node (check with: command -v node).
+
+[Unit]
+Description=Payroll Workspace database gateway
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+User=payroll
+Group=payroll
+WorkingDirectory=/opt/payroll/app/db-gateway
+EnvironmentFile=/etc/payroll/gateway.env
+ExecStart=/usr/bin/node server.mjs
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

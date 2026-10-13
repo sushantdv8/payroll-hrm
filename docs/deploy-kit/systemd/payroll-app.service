@@ -1,0 +1,24 @@
+# /etc/systemd/system/payroll-app.service
+# Install:  sudo cp payroll-app.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now payroll-app
+# Check:    systemctl status payroll-app ; journalctl -u payroll-app -f ; curl -s -o /dev/null -w "%{http_code}\n" "http://127.0.0.1:3000/api/hr-login?username=x"   (401 = running)
+# Paths assume the code is in /opt/payroll/app, the build exists (npm run build) and Node.js is /usr/bin/node (check with: command -v node).
+# When the sign-in layer exists it takes over port 3000 and this service moves to another port (for example 3001) - see docs/DEPLOYMENT-GUIDE.md.
+
+[Unit]
+Description=Payroll Workspace web application
+After=network.target payroll-gateway.service
+Wants=payroll-gateway.service
+
+[Service]
+User=payroll
+Group=payroll
+WorkingDirectory=/opt/payroll/app/payroll-web
+EnvironmentFile=/etc/payroll/app.env
+ExecStart=/usr/bin/node --import ./deploy/node-runner/register.mjs node_modules/vinext/dist/cli.js start -p 3000 -H 127.0.0.1
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
