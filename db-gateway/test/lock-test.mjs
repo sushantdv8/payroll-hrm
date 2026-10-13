@@ -49,6 +49,10 @@ const withLock = await run(true);
 console.log('with the write lock   :', JSON.stringify(withLock));
 assert.equal(withLock.told.saved, 1); assert.equal(withLock.told.refused, 19); assert.equal(withLock.audits, 1);
 console.log('PASS  one winner, 19 told to reload, one audit entry');
-const withoutLock = await run(false);
-console.log('without the write lock:', JSON.stringify(withoutLock), withoutLock.told.saved > 1 ? '  <- several writers are told "saved" but only one change is kept' : '  (no race happened this time)');
+let withoutLock;
+for (let attempt = 1; attempt <= 3; attempt++) { // the race is a matter of timing: try up to three times
+  withoutLock = await run(false);
+  if (withoutLock.told.saved > 1) break;
+}
+console.log('without the write lock:', JSON.stringify(withoutLock), withoutLock.told.saved > 1 ? '  <- several writers are told "saved" but only one change is kept' : '  (no race happened in 3 tries)');
 process.exit(0);

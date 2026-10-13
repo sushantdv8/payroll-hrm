@@ -63,5 +63,6 @@ if (meta) {
   }
 }
 console.log(`files: ${files} copied${skipped ? `, ${skipped} had no stored content (skipped)` : ''}`);
+await pg.exec('ANALYZE'); // fresh statistics, so the very first queries already use the indexes well
 await pg.close();
 console.log('Done. Start the gateway and set DB_GATEWAY_URL / DB_GATEWAY_SECRET for the app.');

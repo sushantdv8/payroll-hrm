@@ -32,15 +32,20 @@ Tests: `npm run test:salary-sheets`, `npm run test:salary-months`.
 
 ## Run on a server with PostgreSQL
 
+Tested on PostgreSQL 17.11 with a copy of the real data (details and numbers in `db-gateway/README.md`).
+
 1. Create the database and run the gateway (`db-gateway/README.md`, steps 1-2). It needs `DATABASE_URL` and `GATEWAY_SECRET`.
-2. Give the app these two variables (wrangler `--var`, `.dev.vars` or the Worker environment):
-   `DB_GATEWAY_URL=http://127.0.0.1:5790` and `DB_GATEWAY_SECRET=<same secret>`.
-   Without them the app keeps using local SQLite/R2 as before.
+2. Build and start the app on plain Node.js with the two gateway variables
+   (`DB_GATEWAY_URL=http://127.0.0.1:5790`, `DB_GATEWAY_SECRET=<same secret>`):
+   `cd payroll-web && npm ci && npm run build && npm run start:node -- -p 3000`.
+   Without the two variables the app keeps using local SQLite/R2 as before.
 3. Move existing data once with `db-gateway/migrate-from-sqlite.mjs`.
-4. Put a reverse proxy (nginx / Plesk) with HTTPS in front of the app. Keep the gateway and PostgreSQL on `127.0.0.1`.
+4. The app only works behind the sign-in layer (`installer/launcher.mjs`), which adds the identity headers after login; put it
+   in front of the app, and a reverse proxy (nginx / Plesk) with HTTPS in front of that. Keep the app, the gateway and
+   PostgreSQL on `127.0.0.1`. (The launcher still has to be adapted for server use: it was written for the Windows edition.)
 5. Nightly `pg_dump` backups, copied off the server.
 
-Gateway tests: `cd db-gateway && npm install && node test/run.mjs && node test/migrate-test.mjs`.
+Gateway tests: `cd db-gateway && npm install && node test/run.mjs && node test/migrate-test.mjs` (more in its README).
 
 ## Secrets and files that are NOT in this repository
 
