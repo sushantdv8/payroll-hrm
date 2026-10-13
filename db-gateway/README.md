@@ -88,7 +88,7 @@ then. Never open PostgreSQL's port to the internet.
 
 ## Notes
 
-* Tested on PostgreSQL 17.11. Nothing newer than PostgreSQL 9.5 features is used, so older supported versions should work.
+* Tested on PostgreSQL 17.11 (recommended). The software itself uses nothing newer than PostgreSQL 9.5 features, so older versions are expected to work, but only 17 was tried. A backup made by PostgreSQL 17 can only be read by `pg_restore` 17 or newer.
 * Each refused save (someone else changed the record first) shows up as an `ERROR ... hr_write_guard ... check constraint` line
   in PostgreSQL's log. That is how the app's write guard says "reload and try again"; it is not a fault.
 * If PostgreSQL restarts while people work, requests fail for a couple of seconds and then continue by themselves.

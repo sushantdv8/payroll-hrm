@@ -30,6 +30,8 @@ dist/
 *.bak
 *.exe
 *.zip
+*.7z
+*.dump
 *.log
 *.tsbuildinfo
 /payroll-web/.git-old-history/
