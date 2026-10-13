@@ -34,7 +34,7 @@ and `db-gateway`). There is no Worker deployment to hand over. (The `wrangler` c
 ## 2. Requirements
 
 * Linux VPS (Ubuntu 22.04 / 24.04 or similar), Plesk Obsidian with nginx. Not suitable for shared hosting (needs long-running Node.js services).
-* 2 vCPU, 4 GB RAM (2 GB is the minimum), 20 GB disk. Measured with the real data: PostgreSQL database 0.6 GB, app 100-300 MB RAM, gateway about 100 MB.
+* 2 vCPU, 4 GB RAM (2 GB is the minimum), 20 GB disk. Measured with the real data: PostgreSQL database 0.6 GB, app 100-300 MB RAM (more for a moment while a large report is produced); the gateway is a small Node.js process.
 * Node.js 22.13 or newer (22 LTS or 24); npm. PostgreSQL 14 or newer (tested on 17.11). Git.
 * Outbound internet only while installing packages and for the Let's Encrypt certificate. At run time the software calls **no** external service.
 
