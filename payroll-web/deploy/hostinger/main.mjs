@@ -12,6 +12,8 @@
 //     PUBLIC_ORIGIN         https://<the address people type>   (required)
 //     ADMIN_PASSWORD_HASH   scrypt hash of the Super Admin password, made with deploy/signin-layer/make-admin-hash.mjs   (required)
 //     PAYROLL_DATA_DIR      where the database lives (default: ~/payroll-data)
+//     PAYROLL_ENV_FILE      a settings file with KEY=VALUE lines (default: <PAYROLL_DATA_DIR>/app.env); real environment variables win over it.
+//                           For a hosting where the variables cannot be kept in a panel: the file can be made private (chmod 600) and holds the same names.
 //     PORT                  only for a test outside the hosting (the hosting ignores it)
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -27,6 +29,15 @@ const env = process.env, started = Date.now();
 const log = m => console.log(`[payroll ${((Date.now() - started) / 1000).toFixed(1)}s] ${m}`);
 process.on('unhandledRejection', e => console.error('[payroll] unhandled rejection:', e && e.stack || e));
 process.on('uncaughtException', e => console.error('[payroll] uncaught exception:', e && e.stack || e));
+
+// ---- settings file (optional) ----
+const settingsFile = path.resolve(env.PAYROLL_ENV_FILE || path.join(env.PAYROLL_DATA_DIR || path.join(os.homedir(), 'payroll-data'), 'app.env'));
+try {
+  for (const line of fs.readFileSync(settingsFile, 'utf8').split(/\r?\n/)) {
+    const m = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/.exec(line);   // a line that starts with # is not a setting
+    if (m && !(m[1] in env)) env[m[1]] = m[2].replace(/^(["'])(.*)\1$/, '$2');
+  }
+} catch (e) { if (e.code !== 'ENOENT') console.error(`[payroll] cannot read the settings file ${settingsFile}: ${e.message}`); }
 
 // ---- places ----
 const dataDir = path.resolve(env.PAYROLL_DATA_DIR || path.join(os.homedir(), 'payroll-data'));

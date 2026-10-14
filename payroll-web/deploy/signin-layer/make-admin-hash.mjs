@@ -46,5 +46,5 @@ if(!target){console.log(hash);process.exit(0);}
 let text='';try{text=fs.readFileSync(target,'utf8');}catch(e){if(e.code!=='ENOENT'){console.error('Cannot read '+target+': '+e.message);process.exit(1);}}
 const line='ADMIN_PASSWORD_HASH='+hash;
 const next=/^ADMIN_PASSWORD_HASH=.*$/m.test(text)?text.replace(/^ADMIN_PASSWORD_HASH=.*$/m,()=>line):text+(text&&!text.endsWith('\n')?'\n':'')+line+'\n';
-try{fs.writeFileSync(target,next);}catch(e){console.error('Cannot write '+target+': '+e.message);process.exit(1);}
-console.log('ADMIN_PASSWORD_HASH was written to '+target+'. Restart the sign-in layer (systemctl restart payroll-layer) to use it.');
+try{fs.writeFileSync(target,next,{mode:0o600});try{fs.chmodSync(target,0o600);}catch{/* not supported here (Windows) */}}catch(e){console.error('Cannot write '+target+': '+e.message);process.exit(1);}
+console.log('ADMIN_PASSWORD_HASH was written to '+target+' (readable by its owner only). Restart the sign-in layer (systemctl restart payroll-layer, or restart the web app) to use it.');
