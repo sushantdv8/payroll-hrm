@@ -22,7 +22,7 @@ browser --HTTPS--> hosting (CDN, LiteSpeed) --> sign-in layer --unix socket--> t
 | Package manager | npm |
 | Build command | `npm run build` |
 | Entry file | `deploy/hostinger/server.js` |
-| Environment variables | `PUBLIC_ORIGIN` = `https://<the address people type>` and `ADMIN_PASSWORD_HASH` = the output of `node deploy/signin-layer/make-admin-hash.mjs` (you type the Super Admin password; only its hash is printed). Optional: `PAYROLL_DATA_DIR` |
+| Environment variables | `PUBLIC_ORIGIN` = `https://<the address people type>` and `ADMIN_PASSWORD_HASH` = the output of `node deploy/signin-layer/make-admin-hash.mjs` (you type the Super Admin password; only its hash is printed; on Windows / macOS add `--clipboard` to get the hash into the clipboard without showing it, then paste it into the variable). Optional: `PAYROLL_DATA_DIR` |
 
 Until both variables are set the app answers "not configured". Never put the password itself in a variable.
 

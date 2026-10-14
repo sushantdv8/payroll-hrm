@@ -6,10 +6,12 @@
 //   (a password that is piped in, e.g.  node make-admin-hash.mjs < password.txt , is read from the first line)
 // (The option is not called --env-file on purpose: Node itself reads a file named by --env-file, anywhere on the command line, before this script starts.)
 import fs from 'node:fs';
+import {spawnSync} from 'node:child_process';
 import {hashPassword} from './server.mjs';
 
-const args=process.argv.slice(2),target=args[0]==='--write-to'?args[1]:'';
-if(args.length&&!(args[0]==='--write-to'&&target&&args.length===2)){console.error('Usage: node make-admin-hash.mjs [--write-to /etc/payroll/layer.env]');process.exit(2);}
+//   node make-admin-hash.mjs --clipboard                           puts the hash into the clipboard (Windows / macOS), to paste it into a hosting panel's environment variable; nothing is shown
+const args=process.argv.slice(2),target=args[0]==='--write-to'?args[1]:'',toClipboard=args.length===1&&args[0]==='--clipboard';
+if(args.length&&!toClipboard&&!(args[0]==='--write-to'&&target&&args.length===2)){console.error('Usage: node make-admin-hash.mjs [--write-to /etc/payroll/layer.env | --clipboard]');process.exit(2);}
 
 function readSecret(prompt){
  return new Promise((resolve,reject)=>{
@@ -34,6 +36,12 @@ if(first.length>200){console.error('The password is too long (200 characters at 
 if(process.stdin.isTTY){const again=await readSecret('Type it again: ');if(again!==first){console.error('The two passwords are not the same.');process.exit(1);}}
 const hash=await hashPassword(first);
 
+if(toClipboard){
+ const tool=process.platform==='win32'?['clip.exe',[]]:process.platform==='darwin'?['pbcopy',[]]:null;
+ if(!tool){console.error('--clipboard works on Windows and macOS only; run without it and copy the printed hash.');process.exit(1);}
+ const r=spawnSync(tool[0],tool[1],{input:hash});if(r.status!==0){console.error('Could not use the clipboard.');process.exit(1);}
+ console.log('The hash is in the clipboard (not shown). Paste it into ADMIN_PASSWORD_HASH, then clear the clipboard.');process.exit(0);
+}
 if(!target){console.log(hash);process.exit(0);}
 let text='';try{text=fs.readFileSync(target,'utf8');}catch(e){if(e.code!=='ENOENT'){console.error('Cannot read '+target+': '+e.message);process.exit(1);}}
 const line='ADMIN_PASSWORD_HASH='+hash;

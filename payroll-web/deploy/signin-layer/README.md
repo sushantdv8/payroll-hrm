@@ -38,7 +38,7 @@ processes, so port 3000 (and 5790, 5432) must never be opened in the firewall.
 | Variable | Meaning |
 |---|---|
 | `PUBLIC_ORIGIN` | The address people type, e.g. `https://hrm.example.com` (no path). **Required.** Requests for any other host name get 421. |
-| `ADMIN_PASSWORD_HASH` | scrypt hash of the Super Admin password. **Required**, the layer does not start without it. Make it with `node make-admin-hash.mjs --write-to /etc/payroll/layer.env`. |
+| `ADMIN_PASSWORD_HASH` | scrypt hash of the Super Admin password. **Required**, the layer does not start without it. Make it with `node make-admin-hash.mjs --write-to /etc/payroll/layer.env` (or `--clipboard` on Windows / macOS, to paste the hash into a hosting panel). |
 | `PAYROLL_INTERNAL_KEY` | Same value as in the application's environment: lets the layer write sign-ins and sign-outs to the activity log. Without it those entries are not written. |
 | `UPSTREAM` | The application, default `http://127.0.0.1:3000`. |
 | `HOST`, `PORT` | Where the layer listens, default `127.0.0.1:8080`. Keep the host on 127.0.0.1 (nginx is in front). |
