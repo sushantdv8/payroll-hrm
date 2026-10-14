@@ -24,6 +24,18 @@ Every sign-in opens its own window (its own address, such as http://localhost:57
 for the company chosen there, with its own session. To work in two companies at once,
 open the sign-in address (the shortcut) again in a new tab and sign in to the other
 company: the two sessions never mix. Exit in a window signs out of that window only.
+LOGINS, ROLES AND THE ACTIVITY LOG (Utilities menu)
+admin01 is the Super Admin. Utilities > Users & Roles: the Super Admin makes Admins and
+Users, an Admin makes Users. Each login gets its companies, locations and the View / Add /
+Edit / Delete of the screens ticked for it (an Admin can give only what the Admin has).
+The new login signs in on the same sign-in page with its own ID and password and sees only
+the menus and sub-menus it was given (a menu with no right ticked is hidden). A login is
+made inactive, never deleted. Utilities > Activity Log: every login keeps a log of its
+sign-ins, screens opened, records changed, prints and refused attempts. The Super Admin
+reads everybody's log, an Admin the Users' and its own, a User its own (only when the
+Activity Log was ticked for that User); nobody can edit or delete the log. Each workspace (original and editable) keeps its own logins and log: a
+login made in a workspace signs in on the same sign-in page (type its ID and password) and
+opens that workspace, and its sign-ins and sign-outs are in that workspace's Activity Log.
 The Biometric Attendance app (downloads the punches of machines KE1, KE2, b4) is part
 of this setup and starts together with Payroll Workspace: no second setup is needed.
 Install on a PC that is on the machines' network (192.168.11.x). Its data is kept in

@@ -173,9 +173,23 @@ and the layer must remove any `oai-authenticated-user-*` headers sent by browser
 |---|---|
 | `oai-authenticated-user-id` | `local_seedy` for **every** user. This is the "owner" (tenant) under which all records are stored; it is not a person. The data on your server must be stored under the same value, so keep it. |
 | `oai-authenticated-user-email`, `-full-name` (+ `-full-name-encoding: percent-encoded-utf-8`) | Display name and e-mail of the signed-in person. |
-| `oai-authenticated-user-username` | `admin01` for the administrator, otherwise the application user's login name. Decides the permissions. |
-| `oai-authenticated-user-mode` | `editable` (normal) or `original` (the read-only workspace). |
-| `oai-authenticated-user-path`, `-method` | The request path and HTTP method (used for the permission rules of limited users). |
+| `oai-authenticated-user-username` | `admin01` for the Super Admin, otherwise the login name of an Admin / User made in the application (Utilities > Users & Roles). The application reads the role and the rights of that login from the database on every request. |
+| `oai-authenticated-user-mode` | `editable` (normal) or `original`. With `original` the application refuses every change and writes no activity (a read-only workspace). The Windows edition always sends `editable`: its "original" workspace is a second, separate copy of the data. |
+| `oai-authenticated-user-path`, `-method` | The request path and HTTP method. **Required for every Admin / User login**: the permission rules of limited logins are applied by path, so a request of such a login without the path is refused. (The Super Admin needs neither.) |
+
+The sign-in layer itself asks `POST /api/hr-login` (`{"username","password"}` - the application checks the password of an Admin / User and returns the role and the rights) and
+`GET /api/hr-login?username=<login>` (does the login exist). Both must be called **without** an `oai-authenticated-user-username` header (or with `admin01`); a signed-in Admin / User who calls them gets 403.
+
+**Sign-ins in the activity log (optional).** Every login has an activity log (Utilities > Activity Log). Screens opened, changes, prints and refused attempts are written by the application itself;
+sign-ins and sign-outs can only come from the sign-in layer. To enable them set the environment variable `PAYROLL_INTERNAL_KEY` (a long random value, see `docs/deploy-kit/ENVIRONMENT-VARIABLES.md`)
+for the application and let the layer call, after each sign-in, failed sign-in and sign-out:
+
+```text
+POST /api/activity    (the usual identity headers, Origin = the application's own origin, header  x-payroll-internal: <PAYROLL_INTERNAL_KEY>)
+{"internal":true,"event":"login" | "logout" | "login-failed","username":"<login>","dataset":"<company key>","summary":"<optional text>"}
+```
+
+The layer must also remove any `x-payroll-internal` header sent by browsers. Without the key these entries are simply not written; everything else works.
 
 The layer also provides `GET /__workspace`, which returns `{"company":"<dataset key>","mode":"editable","username":"admin01","location":""}` for the company and
 year chosen at sign-in; the screens use it to open the right data.
@@ -265,7 +279,9 @@ Take a database backup first. Tests that can be run after an update: `cd db-gate
 
 * The built-in administrator login is `admin01`. No password is stored in the source code or in GitHub; the Windows edition keeps only password hashes in a file that is not part of the repository.
   At handover the company's authorised person chooses the new administrator password in the server sign-in layer; share it only person-to-person (phone / password manager), never by e-mail or chat.
-* Other users and their permissions (companies, units, modules) are created inside the application (HR Management > Users & Unit Permissions) and kept, with salted password hashes, in the database table `hr_users`.
+* Other logins are made inside the application (Utilities > Users & Roles): the Super Admin (`admin01`) makes Admins and Users, an Admin makes Users, and each login gets the companies, locations and the
+  View / Add / Edit / Delete of the screens ticked for it (an Admin can give only what the Admin has). They are kept, with salted password hashes (PBKDF2), in the table `hr_users`; a login is made inactive,
+  never deleted. Every login has an activity log (table `activity_log`, rows are only added): the Super Admin reads everybody's, an Admin the Users' and its own, a User its own. See `docs/USERS-AND-ROLES.md`.
 * Database password, `GATEWAY_SECRET`, Plesk and root access belong to the company. The developer needs none of them: your team can install following this guide, with the developer on a screen-share.
   If you want the developer to do it, give a temporary limited SSH user and remove it afterwards.
 * The database holds personal and salary data of all employees: restrict who can read backups, transfer them only encrypted (SFTP / encrypted ZIP with the password sent separately), and delete copies that are no longer needed.
@@ -295,7 +311,8 @@ Until this is arranged, attendance can still be imported/entered as before; only
 | `attendance`, `salary_snapshots` | One row per employee and month. |
 | `source_datasets`, `source_employee_links`, `source_packets`, `source_parts` | The imported original company databases (manifests, links to employees, uploaded parts). |
 | `master_records` | Master data and settings (departments, banks, shifts, salary sheets, biometric settings, ...). |
-| `hr_records`, `hr_audit`, `hr_settings`, `hr_users`, `hr_write_guard` | HR module records, audit trail, settings, users with permissions, and the guard table used for safe saving. |
+| `hr_records`, `hr_audit`, `hr_settings`, `hr_users`, `hr_write_guard` | HR module records, audit trail, settings, logins (Admins / Users) with their rights, and the guard table used for safe saving. |
+| `activity_log` | The activity log of every login (sign-ins, screens opened, records changed, prints, refused attempts). Rows are only added. |
 | `objects` | Files: employee photos, HR documents, original-table archives, month indexes. |
 
 ## 12. Not finished / to be decided

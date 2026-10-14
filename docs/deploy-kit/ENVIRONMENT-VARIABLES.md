@@ -16,6 +16,8 @@ Everything the software reads from its environment on a server. **All secrets ar
 | `NODE_ENV` | web application | recommended | `production` | Standard Node.js setting. |
 | web port | web application | yes | `-p 3000` (command line) or `PORT=3000` | Port of the application (the unit file uses `-p 3000 -H 127.0.0.1`). |
 
+| `PAYROLL_INTERNAL_KEY` | web application | no | 48 hex characters | Secret shared with the sign-in layer: with it (header `x-payroll-internal`) the layer may write sign-ins / sign-outs of any login to the activity log (`POST /api/activity`, see the guide, section 4.6). Without it those entries are not written; nothing else changes. Create it with `openssl rand -hex 24`; keep it out of the browser. |
+
 That is the complete list: the application itself reads no other variable, and there is no API key, e-mail or payment setting.
 
 ## 2. Variables of other programs (only if you use them)
