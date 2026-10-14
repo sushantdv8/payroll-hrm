@@ -1,10 +1,13 @@
 import {headers} from 'next/headers';
 import {z} from 'zod';
-import {ownerId,db,checkOrigin,fail,readBounded,RequestError,validDataset} from '@/lib/server-store';
+import {ownerId,db,checkOrigin,fail,readBounded,RequestError,validDataset,drained} from '@/lib/server-store';
 import {datasetKey} from '@/lib/full-import';
 import {sheetTemplates,defaultSheetRules,freshMonth,footerFields,type SheetDocument} from '@/lib/salary-sheets';
 import {loadMonthlySheets} from '@/lib/salary-sheet-monthly-store';
 import {previousMonth} from '@/lib/salary-sheets';
+import {hrIdentity} from '@/lib/hr-store';
+import {needScreen,refuse,note} from '@/lib/guard';
+import {unitLimited} from '@/lib/unit-scope';
 export const dynamic='force-dynamic';
 const month=z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
 const cell=z.union([z.string().max(2000),z.number().finite().min(-1e12).max(1e12),z.null()]);
@@ -13,8 +16,10 @@ const docSchema=z.object({templateId:z.enum(sheetTemplates.map(t=>t.id) as [stri
  rules:z.object({divisor:z.enum(['calendar','30','26']),pfPct:z.number().min(0).max(100),esiPct:z.number().min(0).max(100),employerEsiPct:z.number().min(0).max(100),ctcPct:z.number().min(0).max(100),claimEmployerCap:z.number().min(0),claimOtherCap:z.number().min(0),claimPriorityCap:z.number().min(0),comparisonMonth:month,summaryHeadcount:z.number().min(1).max(100000).optional()}).strict(),formulaEdits:formulas.optional(),sourceFile:z.string().max(200).optional(),generation:z.object({scope:z.string().min(1).max(200)}).strict().optional(),footerValues:z.record(z.string().regex(/^[A-Z]{1,2}\d{1,5}$/),cell).optional()}).strict();
 const table='salary-sheet';
 async function editable(){return (await headers()).get('oai-authenticated-user-mode')==='editable';}
+// The monthly sheets hold the salary of the whole company on one sheet, so a login limited to some locations cannot open or change them.
+async function sheetAccess(owner:string,right:'view'|'edit'){const actor=await hrIdentity(owner);await needScreen(owner,actor,'reports/monthly-sheets',right);if(unitLimited(actor))await refuse(owner,actor,'The monthly salary sheets cover the whole company, so they need a login that has All locations.','reports/monthly-sheets');}
 export async function GET(request:Request){try{
- const owner=await ownerId(),u=new URL(request.url),dataset=datasetKey.parse(u.searchParams.get('dataset'));await validDataset(owner,dataset);const target=month.parse(u.searchParams.get('month'));
+ const owner=await ownerId(),u=new URL(request.url),dataset=datasetKey.parse(u.searchParams.get('dataset'));await validDataset(owner,dataset);await sheetAccess(owner,'view');const target=month.parse(u.searchParams.get('month'));
  const stored=await db().prepare('SELECT record_key,data,revision FROM master_records WHERE owner=? AND dataset=? AND table_name=? AND deleted=0 ORDER BY updated_at DESC').bind(owner,dataset,table).all<{record_key:string;data:string;revision:number}>();
  const history=stored.results.map(r=>({...JSON.parse(r.data),revision:r.revision}) as SheetDocument);
  const documents:Record<string,SheetDocument>={};
@@ -34,8 +39,8 @@ export async function GET(request:Request){try{
  }
  return Response.json({documents,editable:await editable(),source,history:history.map(d=>({templateId:d.templateId,month:d.month,rows:d.rows.length}))},{headers:{'Cache-Control':'no-store'}});
 }catch(error){return fail(error);}}
-export async function POST(request:Request){try{
- const owner=await ownerId();checkOrigin(request);if(!await editable())throw new RequestError('Sign in to the editable workspace to change these sheets.',403);
+async function postHandler(request:Request){try{
+ const owner=await ownerId();checkOrigin(request);if(!await editable())throw new RequestError('Sign in to the editable workspace to change these sheets.',403);await sheetAccess(owner,'edit');
  if(!request.headers.get('content-type')?.includes('application/json'))throw new RequestError('Invalid request.');
  const input=JSON.parse(new TextDecoder().decode(await readBounded(request,8_000_000)));const dataset=datasetKey.parse(input.dataset);await validDataset(owner,dataset);const document=docSchema.parse(input.document) as SheetDocument;
  const t=sheetTemplates.find(t=>t.id===document.templateId)!;const allowed=new Set(t.columns.map(c=>c.key));
@@ -50,5 +55,7 @@ export async function POST(request:Request){try{
  const revision=document.revision+1,data=JSON.stringify({...document,revision}),now=new Date().toISOString();
  const result=previous?await db().prepare('UPDATE master_records SET data=?,revision=?,deleted=0,updated_at=? WHERE id=? AND owner=? AND revision=?').bind(data,revision,now,previous.id,owner,document.revision).run():await db().prepare("INSERT INTO master_records(id,owner,dataset,table_name,record_key,data,origin,revision,deleted,updated_at) VALUES(?,?,?,?,?,?,'entered',?,0,?)").bind(crypto.randomUUID(),owner,dataset,storageTable,key,data,revision,now).run();
  if(result.meta.changes!==1)throw new RequestError('This sheet changed in another window. Reload before saving.',409);
+ await note(owner,'edit',`Saved the ${document.templateId} salary sheet for ${document.month}`,{screen:'reports/monthly-sheets',dataset});
  return Response.json({document:{...document,revision}});
 }catch(error){if(error instanceof SyntaxError)return Response.json({error:'Invalid request.'},{status:400});return fail(error);}}
+export const POST=drained(postHandler);

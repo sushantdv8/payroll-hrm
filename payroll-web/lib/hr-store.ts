@@ -1,6 +1,7 @@
 import {headers} from 'next/headers';
 import {db,RequestError,visibleImport} from './server-store';
 import {defaultHrSettings,settingsSchema,type HrIdentity,type HrPermissions,type HrRecord,type HrSettings} from './hrm';
+import {SUPER_ADMIN,canHrModule} from './access';
 import type {Employee,AttendanceMonth} from './payroll';
 let setup:Promise<unknown>|undefined;
 export async function initHr(){if(!setup)setup=db().exec(`CREATE TABLE IF NOT EXISTS hr_records(id TEXT PRIMARY KEY,owner TEXT NOT NULL,dataset TEXT NOT NULL,module TEXT NOT NULL,employee_id TEXT NOT NULL DEFAULT '',unit TEXT NOT NULL DEFAULT '',status TEXT NOT NULL DEFAULT 'draft',data TEXT NOT NULL,created_by TEXT NOT NULL,revision INTEGER NOT NULL DEFAULT 1,deleted INTEGER NOT NULL DEFAULT 0,updated_at TEXT NOT NULL);
@@ -11,13 +12,22 @@ CREATE INDEX IF NOT EXISTS hr_audit_scope ON hr_audit(owner,dataset,created_at);
 CREATE TABLE IF NOT EXISTS hr_settings(owner TEXT NOT NULL,dataset TEXT NOT NULL,data TEXT NOT NULL,revision INTEGER NOT NULL,PRIMARY KEY(owner,dataset));
 CREATE TABLE IF NOT EXISTS hr_users(owner TEXT NOT NULL,username TEXT NOT NULL,password_hash TEXT NOT NULL,salt TEXT NOT NULL,data TEXT NOT NULL,revision INTEGER NOT NULL,active INTEGER NOT NULL DEFAULT 1,PRIMARY KEY(owner,username));
 CREATE TABLE IF NOT EXISTS hr_write_guard(id TEXT PRIMARY KEY,ok INTEGER NOT NULL CHECK(ok=1));`).catch(e=>{setup=undefined;throw e;});await setup;}
+// Who is signed in: admin01 is the Super Admin (everything); the other logins are read from hr_users with their role and rights.
+// One request asks for the identity several times (the gate, the route, the dataset check ...): it is read from the database once per request.
+const identities=new WeakMap<object,Promise<HrIdentity>>();
 export async function hrIdentity(owner:string):Promise<HrIdentity>{
- const h=await headers(),username=h.get('oai-authenticated-user-username')||'admin01';
- if(username==='admin01')return {username,admin:true,readonly:h.get('oai-authenticated-user-mode')==='original',permissions:{datasets:['*'],units:['*'],modules:{'*':['view','add','edit','approve','delete','reports']}}};
- await initHr();const row=await db().prepare('SELECT data FROM hr_users WHERE owner=? AND username=? AND active=1').bind(owner,username).first<{data:string}>();if(!row)throw new RequestError('This user account is inactive. Sign in again.',403);
- return {username,admin:false,permissions:JSON.parse(row.data) as HrPermissions};
+ const h=await headers();let known=identities.get(h);
+ if(!known){known=loadIdentity(owner,h);identities.set(h,known);known.catch(()=>identities.delete(h));}
+ return known;
 }
-export function canHr(actor:HrIdentity,module:string,action='view'){if(actor.readonly&&!['view','reports'].includes(action))return false;return actor.admin||(actor.permissions.modules[module]||actor.permissions.modules['*']||[]).includes(action);}
+async function loadIdentity(owner:string,h:Awaited<ReturnType<typeof headers>>):Promise<HrIdentity>{
+ const username=h.get('oai-authenticated-user-username')||SUPER_ADMIN,readonly=h.get('oai-authenticated-user-mode')==='original';
+ if(username===SUPER_ADMIN)return {username,name:'Super Admin',role:'superadmin',admin:true,readonly,permissions:{datasets:['*'],units:['*'],modules:{'*':['view','add','edit','approve','delete','reports']}}};
+ await initHr();const row=await db().prepare('SELECT data FROM hr_users WHERE owner=? AND username=? AND active=1').bind(owner,username).first<{data:string}>();if(!row)throw new RequestError('This user account is inactive. Sign in again.',403);
+ const data=JSON.parse(row.data) as HrPermissions&{role?:string;name?:string};
+ return {username,name:data.name||username,role:data.role==='admin'?'admin':'user',admin:false,readonly,permissions:{datasets:data.datasets||[],units:data.units||[],modules:data.modules||{}}};
+}
+export function canHr(actor:HrIdentity,module:string,action='view'){return canHrModule(actor,module,action);}
 export function assertHr(actor:HrIdentity,dataset:string,module:string,action='view',unit?:string){
  if(!actor.admin&&!actor.permissions.datasets.includes('*')&&!actor.permissions.datasets.includes(dataset))throw new RequestError('This company is not assigned to your account.',403);
  if(!canHr(actor,module,action))throw new RequestError('You do not have '+action+' permission for '+module+'.',403);
@@ -33,13 +43,17 @@ export async function hrAttendance(owner:string,employeeId:string,month:string):
 export function guardedWrite(condition:string,bindings:(string|number)[],statements:D1PreparedStatement[]){const id=crypto.randomUUID();return [db().prepare('INSERT INTO hr_write_guard(id,ok) SELECT CAST(? AS TEXT),CASE WHEN '+condition+' THEN 1 ELSE 0 END').bind(id,...bindings),...statements,db().prepare('DELETE FROM hr_write_guard WHERE id=?').bind(id)];}
 export async function passwordHash(password:string,salt:string){const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveBits']);const bytes=await crypto.subtle.deriveBits({name:'PBKDF2',salt:new TextEncoder().encode(salt),iterations:100000,hash:'SHA-256'},material,256);return [...new Uint8Array(bytes)].map(n=>n.toString(16).padStart(2,'0')).join('');}
 export function constantEqual(a:string,b:string){let diff=a.length^b.length;for(let i=0;i<Math.max(a.length,b.length);i++)diff|=(a.charCodeAt(i)||0)^(b.charCodeAt(i)||0);return diff===0;}
+// What a signed-in Admin / User can reach at all. Each of these checks the rights of its own screens (lib/access.ts) before it reads or writes;
+// everything else (the original source tables ...) is for the Super Admin only.
+const reachable=['/api/records','/api/datasets','/api/backup','/api/companies','/api/masters','/api/time-office','/api/register','/api/salaries','/api/salary-check','/api/salary-sheets','/api/salary-slips','/api/rate-history','/api/employee-extras','/api/images','/api/biometric','/api/full-import','/api/users','/api/activity'];
 export async function restrictLegacy(owner:string){
  const h=await headers(),path=h.get('oai-authenticated-user-path')||'',method=h.get('oai-authenticated-user-method')||'GET';
- if(h.get('oai-authenticated-user-mode')==='original'&&method!=='GET'&&method!=='HEAD'&&path!=='/api/hr-login')throw new RequestError('Original workspace is read-only. Sign in to the editable workspace to change records.',403);
- if(!h.get('oai-authenticated-user-username')||h.get('oai-authenticated-user-username')==='admin01')return;
- const actor=await hrIdentity(owner);if(path.startsWith('/api/hr'))return;
- if(method==='GET'&&['/api/records','/api/datasets','/api/backup','/api/companies'].includes(path))return;
- // Restricted users use the HR screens, whose records and actions enforce module/unit permissions.
- if(path.startsWith('/api/'))throw new RequestError('Use the HR screens assigned to your account for this action.',403);
+ if(h.get('oai-authenticated-user-mode')==='original'&&method!=='GET'&&method!=='HEAD'&&path!=='/api/hr-login'&&path!=='/api/activity')throw new RequestError('Original workspace is read-only. Sign in to the editable workspace to change records.',403);
+ const user=h.get('oai-authenticated-user-username');if(!user||user===SUPER_ADMIN)return;
+ const actor=await hrIdentity(owner);
+ // The sign-in program always says which path is asked for; without it the allow-list below cannot be applied, so a limited login is refused.
+ if(!path)throw new RequestError('This request could not be checked. Sign in again.',403);
+ if(path.startsWith('/api/hr')||reachable.includes(path))return;
+ if(path.startsWith('/api/'))throw new RequestError('You do not have access to this function.',403);
  if(!actor.permissions.datasets.length)throw new RequestError('No company is assigned to this user.',403);
 }

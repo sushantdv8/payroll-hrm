@@ -1,8 +1,6 @@
 'use client';
-import {useEffect,useMemo,useState,type ReactNode} from 'react';
-import {createPortal} from 'react-dom';
+import {useMemo,useState,type ReactNode} from 'react';
 import {useQueries,useQuery,useQueryClient} from '@tanstack/react-query';
-import {ChevronFirst,ChevronLast,ChevronLeft,ChevronRight,FileSpreadsheet,ListTree,Printer,RefreshCw,Search} from 'lucide-react';
 import {toast} from 'sonner';
 import type {AttendanceMonth,Employee} from '@/lib/payroll';
 import type {SalarySnapshot} from '@/lib/backup';
@@ -13,6 +11,7 @@ import {employeePayMode,employeeSex,fyMonths,pickMonths,isLeft,type Extra} from 
 import {Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle} from '@/components/ui/dialog';
 import {Button} from '@/components/ui/button';
 import {ErrorMessage} from '../payroll-controls';
+import {Viewer,orderByOwner} from './report-viewer';
 import './reports.css';
 
 export type FilterKey='company'|'subCompany'|'location'|'dhead'|'department'|'designation'|'category'|'salaryGrade'|'leaveGrade'|'shift';
@@ -24,7 +23,10 @@ export type ReportContext={dataset:string;company:{name:string;address:string;va
 export type ReportField={key:string;label:string;kind:'text'|'number'|'date'|'select'|'check'|'radio';place?:'left'|'middle';default?:string;options?:{value:string;label:string}[]|((lists:Lists)=>{value:string;label:string}[])};
 // trees: one group-tree node per employee on the page (like the original viewer); tree: a single node for the page.
 // find: extra text the Find box searches that is not shown in the tree (e.g. every name printed on a page).
-export type ReportPage={key:string;tree?:string;trees?:string[];find?:string;orientation:'portrait'|'landscape';node:ReactNode};
+// owners: the employees the page is printed for ("code · name"). A screen that prints several documents for each employee (Personal File forms) gives its pages owners and a file (the document's name):
+// the viewer then lists each employee in the group tree with the documents under it, and the pages are ordered employee by employee.
+export type ReportOwner={id:string;label:string};
+export type ReportPage={key:string;tree?:string;trees?:string[];find?:string;file?:string;owners?:ReportOwner[];orientation:'portrait'|'landscape';node:ReactNode};
 export type ReportOption={value:string;label:string;needs?:('attendance'|'salaries'|'period'|'rawpunches')[];table?:string;build:(ctx:ReportContext)=>ReportPage[];excel?:(ctx:ReportContext)=>XlCell[][];action?:(ctx:ReportContext)=>Promise<void>;note?:string;withEmployees?:boolean;hidden?:boolean;sheetName?:string};
 // attendanceSource: the report can use the original's separate muster register (default) or the daily attendance.
 // confirm: a Yes / No question asked before Generate (the original's "Please Check Proper Address"); No stops.
@@ -56,42 +58,11 @@ function FilterPicker({label,options,selected,onChange}:{label:string;options:{c
    <div className="rpt-dialog-actions"><Button onClick={()=>{onChange(draft);setOpen(false);}}>OK</Button><Button variant="outline" onClick={()=>setOpen(false)}>Cancel</Button></div></DialogContent></Dialog></div>;
 }
 
-function Viewer({pages,onRefresh,onExcel,title}:{pages:ReportPage[];onRefresh:()=>void;onExcel?:()=>void;title:string}){
- const [page,setPage]=useState(0);const [tree,setTree]=useState(true);const [zoom,setZoom]=useState(0.8);const [find,setFind]=useState('');const [printing,setPrinting]=useState(false);
- const current=Math.min(page,Math.max(0,pages.length-1));const treeItems=pages.flatMap((p,i)=>(p.trees?.length?p.trees:[p.tree]).filter(Boolean).map((label,k)=>({i,k,label:label as string})));
- // Pages that load their own data show a .rpt-loading note meanwhile; printing waits for them (up to a minute).
- useEffect(()=>{if(!printing)return;const done=()=>setPrinting(false);window.addEventListener('afterprint',done,{once:true});let t=0,tries=0;
-  const go=()=>{t=window.setTimeout(()=>{if(document.querySelector('.rpt-print-root .rpt-loading')&&++tries<200)go();else window.print();},300);};go();
-  return()=>{clearTimeout(t);window.removeEventListener('afterprint',done);};},[printing]);
- function doFind(){const q=find.trim().toLowerCase();if(!q)return;const has=(p:ReportPage)=>[p.tree||'',p.find||'',...(p.trees||[])].some(l=>l.toLowerCase().includes(q));const hit=pages.findIndex((p,i)=>i>current&&has(p));const first=hit>=0?hit:pages.findIndex(has);if(first>=0)setPage(first);else toast.error('Not found in the page list.');}
- if(!pages.length)return <div className="rpt-empty">No records match the selection. Change the selection and press Generate.</div>;
- return <div className="rpt-viewer">
-  <div className="rpt-toolbar no-print">
-   <button type="button" title="Print" onClick={()=>setPrinting(true)}><Printer size={16}/></button>
-   {onExcel&&<button type="button" title="Export to Excel" onClick={onExcel}><FileSpreadsheet size={16}/></button>}
-   <button type="button" title="Refresh" onClick={onRefresh}><RefreshCw size={16}/></button>
-   <button type="button" title="Toggle group tree" className={tree?'is-on':''} onClick={()=>setTree(v=>!v)}><ListTree size={16}/></button>
-   <span className="rpt-sep"/>
-   <button type="button" title="First page" disabled={current===0} onClick={()=>setPage(0)}><ChevronFirst size={16}/></button>
-   <button type="button" title="Previous page" disabled={current===0} onClick={()=>setPage(current-1)}><ChevronLeft size={16}/></button>
-   <span className="rpt-page-no">{current+1} of {pages.length}</span>
-   <button type="button" title="Go to Next Page" disabled={current>=pages.length-1} onClick={()=>setPage(current+1)}><ChevronRight size={16}/></button>
-   <button type="button" title="Last page" disabled={current>=pages.length-1} onClick={()=>setPage(pages.length-1)}><ChevronLast size={16}/></button>
-   <span className="rpt-sep"/>
-   <input aria-label="Find paycode or name" placeholder="Find" value={find} onChange={e=>setFind(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')doFind();}}/><button type="button" title="Find" onClick={doFind}><Search size={16}/></button>
-   <select aria-label="Zoom" value={zoom} onChange={e=>setZoom(Number(e.target.value))}>{[0.5,0.65,0.8,1,1.25].map(z=><option key={z} value={z}>{Math.round(z*100)}%</option>)}</select>
-  </div>
-  <div className="rpt-body">{tree&&treeItems.length>0&&<ul className="rpt-tree no-print">{treeItems.map(t=><li key={t.i+'-'+t.k}><button type="button" className={t.i===current&&t.k===0?'is-active':''} onClick={()=>setPage(t.i)}>{t.label}</button></li>)}</ul>}
-   <div className="rpt-canvas"><div className="rpt-tab-label">Main Report</div><div style={{zoom}}><div className={'rpt-paper '+pages[current].orientation}>{pages[current].node}</div></div></div></div>
-  {printing&&createPortal(<div className="rpt-print-root" aria-label={title}>{pages.map(p=><div key={p.key} className={'rpt-paper '+p.orientation}>{p.node}</div>)}</div>,document.body)}
- </div>;
-}
-
 export function ReportForm({dataset,employees,title,config,companyName,onClose}:{dataset:string;employees:Employee[];title:string;config:ReportConfig;companyName:string;onClose:()=>void}){
  const client=useQueryClient();const {lists,pending:listsPending}=useLists(dataset);
  const extrasQuery=useQuery({queryKey:['employee-extras',dataset],queryFn:({signal})=>requestJson<{extras:Record<string,Extra>}>('/api/employee-extras?'+new URLSearchParams({dataset}),{signal}),refetchOnWindowFocus:false,staleTime:600000});
  const extras=useMemo(()=>extrasQuery.data?.extras||{},[extrasQuery.data]);
- const [tab,setTab]=useState<'sel'|'rep'>('sel');const [month,setMonth]=useState('2026-08');const [dayFrom,setDayFrom]=useState(1);const [dayTo,setDayTo]=useState(31);
+ const [tab,setTab]=useState<'sel'|'rep'>('sel');const [gen,setGen]=useState(0);const [month,setMonth]=useState('2026-08');const [dayFrom,setDayFrom]=useState(1);const [dayTo,setDayTo]=useState(31);
  const [from,setFrom]=useState('2026-04-01');const [to,setTo]=useState('2026-08-31');const [date,setDate]=useState('2026-08-01');
  const [filters,setFilters]=useState<Partial<Record<FilterKey,string[]>>>({});const [sex,setSex]=useState('all');const [sortOn,setSortOn]=useState('paycode');const [withLeft,setWithLeft]=useState(true);const [groupByDept,setGroupByDept]=useState(false);const [otExtra,setOtExtra]=useState(false);
  const [addressPrint,setAddressPrint]=useState('main');const [printDate,setPrintDate]=useState(()=>new Date().toISOString().slice(0,10));const [printDateShow,setPrintDateShow]=useState(true);
@@ -152,7 +123,9 @@ export function ReportForm({dataset,employees,title,config,companyName,onClose}:
    const built:{o:ReportOption;context:ReportContext}[]=[];for(const o of opts)built.push({o,context:await run(o)});
    if(opt.action){await opt.action(built[0].context);return;}
    for(const {o,context} of built)if(o.needs?.includes('rawpunches')&&context.rawPunchNote)toast.warning(`The machine punches could not be read (${context.rawPunchNote}) – the punches saved in Time Updation are printed instead.`);
-   setCtx(built[0].context);setPages(built.flatMap(({o,context})=>o.build(context).map(p=>built.length>1?{...p,key:o.value+':'+p.key}:p)));setOption(opt.value);setTab('rep');
+   // Personal File forms: every page knows its document (file) and its employee; the pages go employee by employee, each employee's documents together.
+   const made=built.flatMap(({o,context})=>o.build(context).map(p=>{const q=built.length>1?{...p,key:o.value+':'+p.key}:p;return config.multi?{...q,file:o.label}:q;}));
+   setCtx(built[0].context);setPages(config.multi?orderByOwner(made):made);setOption(opt.value);if(tab==='sel')setGen(g=>g+1);setTab('rep');
   }catch(e){setError((e as Error).message);}finally{setBusy(false);}
  }
  async function excel(){if(!ctx||!selectedOption.excel)return;await exportExcel(`${title.replace(/[^A-Za-z0-9]+/g,'_')}_${ctx.month}.xlsx`,[{name:(selectedOption.sheetName||selectedOption.label).slice(0,31),rows:selectedOption.excel(ctx)}]);toast.success('Excel file created');}
@@ -166,7 +139,7 @@ export function ReportForm({dataset,employees,title,config,companyName,onClose}:
  const leftFields=(config.fields||[]).filter(f=>(f.place||'left')==='left'),middleFields=(config.fields||[]).filter(f=>f.place==='middle');
  return <div className="rpt-window">
   <div className="rpt-tabs no-print"><button type="button" className={tab==='sel'?'is-active':''} onClick={()=>setTab('sel')}>Selecion</button><button type="button" className={tab==='rep'?'is-active':''} disabled={!ctx} onClick={()=>setTab('rep')}>Report</button><span className="rpt-title">{title}</span></div>
-  {tab==='sel'?<div className="rpt-selection">
+  {tab==='sel'&&<div className="rpt-selection">
    <div className="rpt-left">
     {(config.period==='month'||config.period==='month-days')&&<label className="rpt-row"><b>Month Name</b><select value={month} onChange={e=>{setMonth(e.target.value);const n=new Date(Date.UTC(Number(e.target.value.slice(0,4)),Number(e.target.value.slice(5,7)),0)).getUTCDate();setDayTo(n);}}>{pickMonths.map(m=><option key={m.value} value={m.value}>{m.label}</option>)}</select></label>}
     {config.period==='month-days'&&<div className="rpt-row rpt-days"><span>Day From</span><input type="number" min={1} max={monthDaysCount} value={dayFrom} onChange={e=>setDayFrom(Math.max(1,Math.min(Number(e.target.value)||1,monthDaysCount)))}/><span>To</span><input type="number" min={dayFrom} max={monthDaysCount} value={Math.min(dayTo,monthDaysCount)} onChange={e=>setDayTo(Math.max(dayFrom,Math.min(Number(e.target.value)||monthDaysCount,monthDaysCount)))}/></div>}
@@ -198,7 +171,9 @@ export function ReportForm({dataset,employees,title,config,companyName,onClose}:
      <div className="rpt-grid"><table><thead><tr><th/><th>Employee Name</th><th>Paycode</th><th>Card No</th></tr></thead><tbody>{shown.slice(0,limit).map(e=><tr key={e.id}><td><input type="checkbox" aria-label={'Include '+e.name} checked={isChecked(e.id)} onChange={()=>toggle(e.id)}/></td><td>{e.name}</td><td>{e.paycode}</td><td>{e.cardNo}</td></tr>)}</tbody></table>
       {shown.length>limit&&<button type="button" className="rpt-more" onClick={()=>setLimit(l=>l+300)}>Show more ({shown.length-limit} more)</button>}</div></div>}
    </div>
-  </div>:<Viewer title={title} pages={pages} onRefresh={()=>generate(option)} onExcel={selectedOption.excel&&!(config.multi&&picked.length>1)?excel:undefined}/>}
+  </div>}
+  {/* The viewer stays mounted behind the Selecion tab, so going back to the Report finds the same page; a new Generate starts it afresh. */}
+  {ctx&&<div hidden={tab!=='rep'}><Viewer key={gen} active={tab==='rep'} title={title} pages={pages} onRefresh={()=>generate(option)} onExcel={selectedOption.excel&&!(config.multi&&picked.length>1)?excel:undefined}/></div>}
   <Dialog open={asking!==null} onOpenChange={v=>{if(!v)setAsking(null);}}><DialogContent className="rpt-dialog"><DialogHeader><DialogTitle>{title}</DialogTitle><DialogDescription>{config.confirm}</DialogDescription></DialogHeader>
    <div className="rpt-dialog-actions"><Button onClick={()=>{const v=asking!;setAsking(null);void generate(v);}}>Yes</Button><Button variant="outline" onClick={()=>setAsking(null)}>No</Button></div></DialogContent></Dialog>
  </div>;

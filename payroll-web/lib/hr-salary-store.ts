@@ -3,8 +3,10 @@ import {db,RequestError} from './server-store';
 import {hrEmployee,hrIdentity,assertHr,hrRows,hrSettings,guardedWrite,auditStatement} from './hr-store';
 import {loanOutstanding,loanPrincipal} from './hr-loan';
 export async function saveSalary(owner:string,input:unknown){
- const value=salarySnapshotSchema.parse(input),actor=await hrIdentity(owner),e=await hrEmployee(owner,value.employeeId,actor);assertHr(actor,e.dataset,'payroll','edit',e.location);
+ const value=salarySnapshotSchema.parse(input),actor=await hrIdentity(owner),e=await hrEmployee(owner,value.employeeId,actor);
  const stored=await db().prepare('SELECT id,data FROM salary_snapshots WHERE owner=? AND employee_id=? AND month=?').bind(owner,e.id,value.month).first<{id:string;data:string}>();const previous=stored?JSON.parse(stored.data) as SalarySnapshot:null;
+ // Add makes the salary of a month, Edit changes a saved one.
+ assertHr(actor,e.dataset,'payroll',previous?'edit':'add',e.location);
  if((previous?previous.revision??1:0)!==(value.revision??0))throw new RequestError('This salary changed. Reload before saving.',409);
  if(previous&&(previous.sourceDataset!==value.sourceDataset||previous.sourceKey!==value.sourceKey))throw new RequestError('Salary source cannot be changed.',409);if(!previous&&(value.sourceDataset!==MANUAL_SALARY||value.sourceKey))throw new RequestError('Invalid salary source.');
  if([...value.earnings,...value.deductions].some(h=>h.amount===null))throw new RequestError('Every salary amount is required.');

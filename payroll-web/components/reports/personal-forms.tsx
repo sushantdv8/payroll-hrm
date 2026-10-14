@@ -4,7 +4,7 @@ import type {Employee} from '@/lib/payroll';
 import {trimCell,type MasterRow} from '@/lib/masters';
 import {dmy,dMonY,employeeSex,realResignDate} from '@/lib/report-utils';
 import type {ReportContext,ReportOption,ReportPage} from './report-form';
-import {extraOf,tablePages} from './report-parts';
+import {extraOf,ownerOf,tablePages} from './report-parts';
 import {masterQuery} from './salary-reports';
 
 // Personal File Forms of the original (Reports › Personal File forms): the bilingual forms printed for each ticked employee.
@@ -34,7 +34,7 @@ function WithData({ctx,e,render}:{ctx:ReportContext;e:Employee;render:(d:Data)=>
  if(fam.isPending||nom.isPending)return <p className="rpt-loading">Loading the family details…</p>;
  return <>{render({fam:family(fam.data?.rows||[],e),nom:nominees(nom.data?.rows||[],e)})}</>;
 }
-const perEmployee=(key:string,make:(ctx:ReportContext,e:Employee,d:Data)=>ReactNode)=>(ctx:ReportContext):ReportPage[]=>ctx.employees.map(e=>({key:key+e.id,orientation:'portrait',tree:e.paycode,node:<div className="pf-form"><WithData ctx={ctx} e={e} render={d=>make(ctx,e,d)}/></div>}));
+const perEmployee=(key:string,make:(ctx:ReportContext,e:Employee,d:Data)=>ReactNode)=>(ctx:ReportContext):ReportPage[]=>ctx.employees.map(e=>({key:key+e.id,orientation:'portrait',owners:[ownerOf(e)],node:<div className="pf-form"><WithData ctx={ctx} e={e} render={d=>make(ctx,e,d)}/></div>}));
 
 // ---- Formats of the printed Personal File (the sample "personal file report"): dates are 03-Feb-2024, the ESIC and Form 11 pages use 03/02/2024 ----
 const dd=(v:string)=>dMonY(v>='2099'?'':v);
@@ -252,11 +252,13 @@ function formF(ctx:ReportContext,e:Employee,d:Data,back:boolean){return back?<di
 
 
 // ---- Employee List / I Card / Photo Detail ----
-const employeeList=(ctx:ReportContext)=>tablePages(ctx,{key:'pel',title:'Employee List',perPage:28,orientation:'landscape',tree:rows=>ctx.employees[rows[0]]?.paycode||'',
+// A page that holds several employees: the viewer lists it under each of them.
+const listed=(part:Employee[],page:ReportPage):ReportPage=>({...page,owners:part.map(ownerOf)});
+const employeeList=(ctx:ReportContext)=>tablePages(ctx,{key:'pel',title:'Employee List',perPage:28,orientation:'landscape',
  columns:[{h:'Sno',cls:'c'},{h:'Paycode'},{h:'Card No.'},{h:'Employee Name'},{h:'Father / Husband'},{h:'Date of Birth',cls:'c'},...(showDoj(ctx)?[{h:'Date of Join',cls:'c'}]:[]),{h:'Designation'},{h:'Department'},{h:'Phone'}],
- rows:ctx.employees.map((e,i)=>[i+1,e.paycode,e.cardNo,e.name,e.fatherName,dm(e.dob),...(showDoj(ctx)?[dm(e.doj)]:[]),e.designation,e.department,e.phone])});
+ rows:ctx.employees.map((e,i)=>[i+1,e.paycode,e.cardNo,e.name,e.fatherName,dm(e.dob),...(showDoj(ctx)?[dm(e.doj)]:[]),e.designation,e.department,e.phone])}).map((page,p)=>listed(ctx.employees.slice(p*28,p*28+28),page));
 const cardPages=(key:string,make:(ctx:ReportContext,e:Employee)=>ReactNode,per:number)=>(ctx:ReportContext):ReportPage[]=>{const out:ReportPage[]=[];
- for(let i=0;i<ctx.employees.length||!i;i+=per){const part=ctx.employees.slice(i,i+per);out.push({key:`${key}${i}`,orientation:'portrait',tree:part[0]?.paycode||'',node:<div className="pf-cards">{part.map(e=><div key={e.id} className="pf-card">{make(ctx,e)}</div>)}</div>});}return out;};
+ for(let i=0;i<ctx.employees.length||!i;i+=per){const part=ctx.employees.slice(i,i+per);out.push(listed(part,{key:`${key}${i}`,orientation:'portrait',node:<div className="pf-cards">{part.map(e=><div key={e.id} className="pf-card">{make(ctx,e)}</div>)}</div>}));}return out;};
 const iCard=(ctx:ReportContext,e:Employee)=><><div className="pf-card-head"><b>{ctx.company.name}</b><br/><small>{ctx.company.address}</small></div><div className="pf-card-body"><div className="pf-card-photo">{photoUrl(e)?<img src={photoUrl(e)} alt={e.name}/>:<span>Photo</span>}</div>
  <div><b>{e.name}</b><br/>{e.designation}<br/>{e.department}<br/>Code : {e.paycode} &nbsp; Card : {e.cardNo||'—'}<br/>{showDoj(ctx)&&<>D.O.J. : {dm(e.doj)}<br/></>}Ph. : {e.phone||'—'}</div></div><div className="pf-card-foot">Authorised Signatory</div></>;
 const photoCard=(ctx:ReportContext,e:Employee)=><><div className="pf-card-photo big">{photoUrl(e)?<img src={photoUrl(e)} alt={e.name}/>:<span>No photo</span>}</div><b>{e.name}</b><br/>{e.paycode} · {e.designation}</>;
@@ -282,4 +284,4 @@ export const personalFormOptions:ReportOption[]=[
  {value:'icard',label:'I card',build:cardPages('ic',iCard,8)},
  {value:'photo',label:'Photo Detail',build:cardPages('ph',photoCard,12)}];
 export const dutyJoinPage=perEmployee('dj',(c,e)=>dutyJoin(c,e));
-export const appointmentHindiPage=(ctx:ReportContext):ReportPage[]=>ctx.employees.flatMap(e=>[1,2].map(n=>({key:'aph'+n+e.id,orientation:'portrait' as const,tree:e.paycode,node:<div className="pf-form">{appointmentHindi(ctx,e,n)}</div>})));
+export const appointmentHindiPage=(ctx:ReportContext):ReportPage[]=>ctx.employees.flatMap(e=>[1,2].map(n=>({key:'aph'+n+e.id,orientation:'portrait' as const,owners:[ownerOf(e)],node:<div className="pf-form">{appointmentHindi(ctx,e,n)}</div>})));

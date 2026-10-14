@@ -12,6 +12,7 @@
 .nav-group-title:hover{background:#1b3a52}
 .nav-group-title.has-active{color:#8de6df}
 .nav-exit{color:#ffc2b8}
+.nav-note{padding:8px 12px;font-size:.84rem;color:#8aa4b8}
 .nav-items{margin:2px 0 8px 14px;border-left:1px solid #2a4a62;padding-left:6px}
 .nav-sub{margin:2px 0 4px 10px;border-left:1px dashed #2f526b;padding-left:6px}
 .with-separator{margin-top:6px;padding-top:6px;border-top:1px solid #213f56}

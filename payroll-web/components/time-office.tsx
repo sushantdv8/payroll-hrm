@@ -16,6 +16,7 @@ import {calcPunchDay,defaultShift,generateRegister,hhmm,impliedDeduct,monthFigur
 import {readPunchFile,type PunchCopy} from '@/lib/punch-file';
 import {dutyDays,matchAll,type BioPunches,type BioSettings} from '@/lib/biometric';
 import {EmployeePick,pickLabel as listLabel,sortEmployees} from './employee-pick';
+import {useCanOpen} from './access-context';
 import {AlertDialog,AlertDialogAction,AlertDialogCancel,AlertDialogContent,AlertDialogDescription,AlertDialogFooter,AlertDialogHeader,AlertDialogTitle} from '@/components/ui/alert-dialog';
 import {Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle} from '@/components/ui/dialog';
 
@@ -42,7 +43,7 @@ const count=(n:number,word:string)=>`${n} ${word}${n===1?'':'s'}`;
 function normalTime(value:string){const s=value.trim();if(!s)return '';const m=/^(\d{1,2})[:.](\d{1,2})$/.exec(s)||/^(\d{2})(\d{2})$/.exec(s);if(!m)return null;const h=Number(m[1]),mi=Number(m[2]);return h>23||mi>59?null:pad(h)+':'+pad(mi);}
 
 export function TimeOffice({mode,dataset,employees,holidays,month,setMonth,onDirty,onOpen}:{mode:Mode;dataset:string;employees:Employee[];holidays:Holiday[];month:string;setMonth:(m:string)=>void;onDirty:(v:boolean)=>void;onOpen?:(screen:string)=>void}){
- const client=useQueryClient();
+ const client=useQueryClient();const canOpen=useCanOpen();
  const [employeeId,setEmployeeId]=useState('');const [edit,setEdit]=useState<{key:string;month:AttendanceMonth}|null>(null);
  const [busy,setBusy]=useState(false);const [status,setStatus]=useState('');const [ask,setAsk]=useState<Ask|null>(null);const [mismatch,setMismatch]=useState<Mismatch[]|null>(null);
  const [bio,setBio]=useState<BioDialog|null>(null);
@@ -156,7 +157,7 @@ export function TimeOffice({mode,dataset,employees,holidays,month,setMonth,onDir
   for(const [id,days] of copy.byEmployee){const e=employees.find(x=>x.id===id);if(!e)continue;const base=buildDaily(e,byId.get(id)||null,punchesOf(e,all.punches));rows.push(withTotals({...base,days:base.days.map(d=>{const p=days.get(d.day);return p?{...d,machineIn:p.in,machineOut:p.out,punches:p.punches,manualIn:'',manualOut:'',deduct:undefined}:d;})}));}
   await saveMany('attendance-save-many',rows,'Machine Data Copy');setStatus('Data copy Completed. Press Machine Download to calculate the attendance.');
  }
- // Biometric Fetch: reads the chosen days' punches from the Biometric Attendance app (Transaction › Biometric Machine
+ // Biometric Fetch: reads the chosen days' punches from the Biometric Attendance app (Utilities › Biometric Machine
  // Setup), pairs them into one in / out per duty day by each employee's shift (night shifts end on the next morning),
  // copies them into Time Updation as machine punches and, when ticked, works the attendance out as Machine Download does.
  function openBio(){if(dirty){toast.error('Save the open employee (or press Cancel) first.');return;}const now=new Date();const current=`${now.getFullYear()}-${pad(now.getMonth()+1)}`===month;
@@ -238,7 +239,7 @@ export function TimeOffice({mode,dataset,employees,holidays,month,setMonth,onDir
      {daily&&<button type="button" className="to-btn" disabled={busy||dataset==='manual'&&!employees.length} onClick={()=>fileRef.current?.click()} title="Copy punches from an attendance-machine export file (CSV / TXT)">Machine Data Copy</button>}
      <button type="button" className="to-btn" disabled={!editable} onClick={deletePunches} title="Delete the punches of the From–To days below">Del.Punch</button>
      {daily&&<button type="button" className="to-btn" disabled={busy} onClick={showMismatch} title="Days with only one punch">Mismatch</button>}
-     {daily&&onOpen&&<button type="button" className="to-btn" disabled={busy||dirty} onClick={()=>onOpen('transaction/times')}>Times</button>}
+     {daily&&onOpen&&canOpen('transaction/times')&&<button type="button" className="to-btn" disabled={busy||dirty} onClick={()=>onOpen('transaction/times')}>Times</button>}
      <input ref={fileRef} type="file" accept=".csv,.txt,.dat,text/csv,text/plain" hidden onChange={e=>{const f=e.target.files?.[0];e.target.value='';if(f)void chooseFile(f);}}/>
     </div>
     <EmployeePick employees={listed} selectedId={employeeId} onSelect={select} name={'to-'+mode}/>
@@ -271,7 +272,7 @@ export function TimeOffice({mode,dataset,employees,holidays,month,setMonth,onDir
      <label>To day<input className="to-input" type="number" min={1} max={n} value={bio.to} disabled={bio.loading} onChange={e=>setBio({...bio,to:e.target.value,preview:null,error:''})}/></label>
      <label><input type="checkbox" checked={bio.calc} disabled={bio.loading} onChange={e=>setBio({...bio,calc:e.target.checked})}/>Calculate the attendance (as Machine Download)</label>
      <button type="button" className="to-btn" disabled={bio.loading} onClick={()=>void bioRead()}>{bio.loading?'Reading…':'Read punches'}</button></div>
-    {bio.error&&<div className="bio-msg is-bad">{bio.error}{onOpen&&<button type="button" className="to-btn" onClick={()=>{setBio(null);onOpen('transaction/biometric');}}>Biometric Machine Setup</button>}</div>}
+    {bio.error&&<div className="bio-msg is-bad">{bio.error}{onOpen&&canOpen('utilities/biometric')&&<button type="button" className="to-btn" onClick={()=>{setBio(null);onOpen('utilities/biometric');}}>Biometric Machine Setup</button>}</div>}
     {bio.preview&&<>
      <div className="bio-sum"><span>Punches read<b>{bio.preview.punches.toLocaleString('en-IN')}</b></span><span>Employees<b>{bio.preview.byEmployee.size}</b></span><span>Punch days<b>{bio.preview.days}</b></span><span>Unknown machine IDs<b>{bio.preview.unmatched.length}</b></span>{bio.preview.skipped>0&&<span>Left / not joined<b>{bio.preview.skipped}</b></span>}</div>
      {bio.preview.unmatched.length>0&&<><p className="to-note">These machine user IDs match no employee (Card No. or paycode), so their punches are not copied. Match them on Biometric Machine Setup › Employee Match.</p>
@@ -281,7 +282,7 @@ export function TimeOffice({mode,dataset,employees,holidays,month,setMonth,onDir
     <div className="to-row">
      <button type="button" className="to-btn is-primary" disabled={bio.loading||!bio.preview?.days} onClick={bioCopy}>Copy into Time Updation{bio.calc?' and calculate':''}</button>
      <button type="button" className="to-btn" disabled={bio.loading} onClick={()=>setBio(null)}>Close</button>
-     {onOpen&&<button type="button" className="to-btn" disabled={bio.loading} onClick={()=>{setBio(null);onOpen('transaction/biometric');}}>Biometric Machine Setup</button>}
+     {onOpen&&canOpen('utilities/biometric')&&<button type="button" className="to-btn" disabled={bio.loading} onClick={()=>{setBio(null);onOpen('utilities/biometric');}}>Biometric Machine Setup</button>}
     </div>
    </div>}
   </DialogContent></Dialog>

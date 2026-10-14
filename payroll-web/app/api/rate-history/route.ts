@@ -2,12 +2,18 @@ import {datasetYear} from '@/lib/dataset-year';
 import {ownerId,fail,RequestError,validDataset} from '@/lib/server-store';
 import {readSourceTable} from '@/lib/source-archive';
 import {datasetKey} from '@/lib/full-import';
+import {hrIdentity,assertHr} from '@/lib/hr-store';
+import {employeeScope,needCode} from '@/lib/unit-scope';
+import {screenRight} from '@/lib/access';
 export const dynamic='force-dynamic';
 
 // Salary Rate History of one employee (Employee Entry › Salary): the rates saved with each month's salary in the original.
 export async function GET(request:Request){try{
- const owner=await ownerId();const url=new URL(request.url);const dataset=datasetKey.parse(url.searchParams.get('dataset'));await validDataset(owner,dataset);
+ const owner=await ownerId();const url=new URL(request.url);const dataset=datasetKey.parse(url.searchParams.get('dataset'));await validDataset(owner,dataset);const actor=await hrIdentity(owner);
+ // Employee Entry shows the salary rates of the employee, so its login may read their history too; otherwise the salary screens' right is needed.
+ assertHr(actor,dataset,screenRight(actor,'master/employee','view')?'employees':'payroll');
  const emp=url.searchParams.get('emp')||'';if(!/^\d{1,9}$/.test(emp))return Response.json({history:[]},{headers:{'Cache-Control':'no-store'}});
+ needCode(await employeeScope(owner,dataset,actor),emp);
  const hist=await readSourceTable(owner,dataset,'tbmonth_hist',200000);if(!hist)return Response.json({history:[]},{headers:{'Cache-Control':'no-store'}});
  const at=Object.fromEntries(hist.columns.map((c,i)=>[c.name,i]));if(at.emp_code===undefined)throw new RequestError('Salary history is unavailable.',503);
  const cell=(r:(string|null)[],c:string)=>(r[at[c]]??'').trim();

@@ -7,7 +7,7 @@ import {dmy,employeePayMode,employeeSex,monthLabel,realResignDate} from '@/lib/r
 import {exportExcel,requestJson} from '@/lib/client-api';
 import type {ReportConfig,ReportContext,ReportOption,ReportPage} from './report-form';
 import {appointmentHindiPage,dutyJoinPage,personalFormOptions} from './personal-forms';
-import {Header,extraOf,listName,n2,tablePages,type Column} from './report-parts';
+import {Header,extraOf,listName,n2,ownerOf,tablePages,type Column} from './report-parts';
 import {Sections,masterQuery} from './salary-reports';
 
 const ALL_FILTERS=['company','subCompany','location','dhead','department','designation','category','salaryGrade','leaveGrade','shift'] as const;
@@ -24,12 +24,14 @@ function biodata(ctx:ReportContext,e:Employee){const x=extraOf(ctx,e);return <><
  <div style={{display:'flex',justifyContent:'space-between',marginTop:'30mm',fontSize:'12px'}}><span>Signature of Employee</span><span>Authorised Signatory</span></div></>;}
 function letter(ctx:ReportContext,title:string,paragraphs:string[]){return <div className="rpt-letter"><Header ctx={ctx} title=""/><div style={{display:'flex',justifyContent:'space-between'}}><span>Ref. No. ____________</span><span>Date : {today(ctx)}</span></div><h2 style={{margin:'10mm 0 8mm',textDecoration:'underline'}}>{title}</h2>{paragraphs.map((p,i)=><p key={i}>{p}</p>)}<div style={{marginTop:'22mm'}}><p>For {ctx.company.name}</p><p style={{marginTop:'16mm'}}>Authorised Signatory</p></div></div>;}
 const to=(e:Employee)=>`${e.name}${e.fatherName?`, ${e.fatherName}`:''}`;
-const perEmployee=(key:string,make:(ctx:ReportContext,e:Employee)=>ReactNode)=>(ctx:ReportContext):ReportPage[]=>ctx.employees.map(e=>({key:key+e.id,orientation:'portrait',tree:e.paycode,node:make(ctx,e)}));
+// label: the viewer's group-tree entry of the page; by default the paycode, the Personal File letters list the page under its employee.
+const ofEmployee=(e:Employee):Pick<ReportPage,'owners'>=>({owners:[ownerOf(e)]});
+const perEmployee=(key:string,make:(ctx:ReportContext,e:Employee)=>ReactNode,label:(e:Employee)=>Pick<ReportPage,'tree'|'owners'>=e=>({tree:e.paycode}))=>(ctx:ReportContext):ReportPage[]=>ctx.employees.map(e=>({key:key+e.id,orientation:'portrait',...label(e),node:make(ctx,e)}));
 // Reports › Personal File forms. The forms the original lists but this file does not build itself live in personal-forms.tsx.
 const legacy=(value:string)=>personalFormOptions.find(o=>o.value===value)!;
 const english=(ctx:ReportContext)=>ctx.options.choice==='english';
-const appointmentEnglish=perEmployee('ap',(ctx,e)=>letter(ctx,'APPOINTMENT LETTER',[`To, ${to(e)}`,`${e.localAddress||''}`,`Dear ${e.name},`,`We are pleased to appoint you as ${e.designation||'________'} in the ${e.department||'________'} department of ${ctx.company.name} with effect from ${dmy(e.doj)||'__________'}.`,'Your terms of employment, salary and other conditions will be as per the rules of the company as amended from time to time.','Please sign the duplicate copy of this letter in token of your acceptance.']));
-const dutyJoinEnglish=perEmployee('dje',(ctx,e)=>letter(ctx,'DUTY JOINING REPORT',[`To, The Manager, ${ctx.company.name}`,`I, ${to(e)}, report for duty as ${e.designation||'________'} in the ${e.department||'________'} department on ${dmy(e.doj)||'__________'}.`,`Paycode : ${e.paycode}      Card No. : ${e.cardNo||'—'}`,'Signature of Employee : ____________________']));
+const appointmentEnglish=perEmployee('ap',(ctx,e)=>letter(ctx,'APPOINTMENT LETTER',[`To, ${to(e)}`,`${e.localAddress||''}`,`Dear ${e.name},`,`We are pleased to appoint you as ${e.designation||'________'} in the ${e.department||'________'} department of ${ctx.company.name} with effect from ${dmy(e.doj)||'__________'}.`,'Your terms of employment, salary and other conditions will be as per the rules of the company as amended from time to time.','Please sign the duplicate copy of this letter in token of your acceptance.']),ofEmployee);
+const dutyJoinEnglish=perEmployee('dje',(ctx,e)=>letter(ctx,'DUTY JOINING REPORT',[`To, The Manager, ${ctx.company.name}`,`I, ${to(e)}, report for duty as ${e.designation||'________'} in the ${e.department||'________'} department on ${dmy(e.doj)||'__________'}.`,`Paycode : ${e.paycode}      Card No. : ${e.cardNo||'—'}`,'Signature of Employee : ____________________']),ofEmployee);
 const personalOverride:Record<string,Partial<ReportOption>>={
  appointment:{build:ctx=>english(ctx)?appointmentEnglish(ctx):appointmentHindiPage(ctx)},
  join:{build:ctx=>english(ctx)?dutyJoinEnglish(ctx):dutyJoinPage(ctx)},

@@ -1,14 +1,19 @@
-import {ownerId,db,checkOrigin,fail,readBounded,RequestError,validDataset} from '@/lib/server-store';
+import {ownerId,db,checkOrigin,fail,readBounded,RequestError,validDataset,drained} from '@/lib/server-store';
 import {datasetKey} from '@/lib/full-import';
-import {DEFAULT_BIO_URL,cleanBioUrl,parseLogsCsv,type BioConfig,type BioHistoryEntry,type BioMap,type BioPunches,type BioSettings,type BioState,type BioUser} from '@/lib/biometric';
+import {DEFAULT_BIO_URL,cleanBioUrl,matchAll,parseLogsCsv,type BioConfig,type BioHistoryEntry,type BioMap,type BioPunches,type BioSettings,type BioState,type BioUser} from '@/lib/biometric';
+import {hrIdentity,hrEmployees} from '@/lib/hr-store';
+import {anyView} from '@/lib/access';
+import {needScreen,refuse,note} from '@/lib/guard';
+import {unitLimited,allEmployees} from '@/lib/unit-scope';
 export const dynamic='force-dynamic';
 
-// Transaction › Biometric Machine Setup and Time Updation › Biometric Fetch.
+// Utilities › Biometric Machine Setup and Time Updation › Biometric Fetch.
 // The punches come from the Biometric Attendance app (it downloads the machines); this route only reads them from it,
 // asks it to download a machine, and keeps this company's settings (master_records, table 'biometric'):
 //   config  {url, devices}   map  {machine user ID: employee id | '-'}   history  [last 100 fetches]
 const TABLE='biometric';
 const day=/^\d{4}-\d{2}-\d{2}$/;
+const companyWide='Biometric Machine Setup covers the machines and machine users of the whole company, so it needs a login that has All locations.';
 type Stored<T>={value:T;revision:number};
 
 async function read<T>(owner:string,dataset:string,key:string,fallback:T):Promise<Stored<T>>{
@@ -56,9 +61,17 @@ const today=()=>new Date().toISOString().slice(0,10);
 
 export async function GET(request:Request){try{
  const owner=await ownerId();const url=new URL(request.url);const q=url.searchParams;
+ // Machine Setup, Time Updation's Biometric Fetch and the Multi Punch report read from here.
+ const actor=await hrIdentity(owner);if(!anyView(actor,k=>k==='utilities/biometric'||k.startsWith('transaction/time')||k.startsWith('reports/')))await refuse(owner,actor,'You do not have permission to read the biometric machines.','utilities/biometric');
  const dataset=datasetKey.parse(q.get('dataset'));await validDataset(owner,dataset);
  const settings=await settingsOf(owner,dataset);const view=q.get('view')||'settings';
- if(view==='settings')return Response.json(settings,{headers:{'Cache-Control':'no-store'}});
+ if(view==='settings'){
+  // A login limited to some locations gets the machine-user matches of its own employees only.
+  if(unitLimited(actor)){const own=new Set((await hrEmployees(owner,dataset,actor)).map(e=>e.id));settings.map=Object.fromEntries(Object.entries(settings.map).filter(([,employee])=>employee==='-'||own.has(employee)));}
+  return Response.json(settings,{headers:{'Cache-Control':'no-store'}});}
+ // The machine list, the machine users and Test (which makes this server call the address it is given) belong to Machine Setup.
+ if(q.get('url')!==null)await needScreen(owner,actor,'utilities/biometric','edit');else if(view==='state'||view==='users')await needScreen(owner,actor,'utilities/biometric','view');
+ if((q.get('url')!==null||view==='state'||view==='users')&&unitLimited(actor))await refuse(owner,actor,companyWide,'utilities/biometric');
  // 'url' lets Test check an address before it is saved.
  const base=q.get('url')!==null?cleanBioUrl(q.get('url')||''):settings.config.url;if(!base)throw new RequestError('Enter the address as http://127.0.0.1:5180 (or http://<computer>:<port>).');
  if(view==='state'){const s=await stateOf(base);return Response.json({...s,url:base},{headers:{'Cache-Control':'no-store'}});}
@@ -79,19 +92,32 @@ export async function GET(request:Request){try{
   const users:BioPunches['users']={};let punches=0;
   for(const p of parseLogsCsv(csv)){if(!used(p.machine)||!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(p.ts))continue;const u=users[p.userId]||(users[p.userId]={name:'',t:[]});if(!u.name&&p.name)u.name=p.name;u.t.push(p.ts.slice(0,16));punches++;}
   for(const u of Object.values(users))u.t.sort();
+  // A login limited to some locations gets only the punches of machine users that belong to employees of those locations (matched as the screens match them).
+  // A machine ID that an employee of another location carries as card number or paycode too is left out unless a saved match names the own employee:
+  // otherwise a login could give a new employee of its own the card number of somebody elsewhere and read that person's punches.
+  if(unitLimited(actor)){
+   const own=await hrEmployees(owner,dataset,actor),ownIds=new Set(own.map(e=>e.id)),bare=(v:string)=>v.trim().toLowerCase().replace(/^0+(?=.)/,'');
+   const foreign=new Set<string>();for(const e of await allEmployees(owner,dataset))if(!ownIds.has(e.id)){if(e.cardNo)foreign.add(bare(e.cardNo));if(e.paycode)foreign.add(bare(e.paycode));}
+   const match=matchAll(own,settings.map,Object.keys(users));punches=0;
+   for(const [id,u] of Object.entries(users)){const m=match.get(id);if(m?.employeeId&&(m.how==='manual'||!foreign.has(bare(id))))punches+=u.t.length;else delete users[id];}
+  }
   return Response.json({users,punches,from,to} satisfies BioPunches,{headers:{'Cache-Control':'no-store'}});}
  throw new RequestError('Unknown view.');
 }catch(error){return fail(error);}}
 
-export async function POST(request:Request){try{
+async function postHandler(request:Request){try{
  const owner=await ownerId();checkOrigin(request);
  if(!request.headers.get('content-type')?.includes('application/json'))throw new RequestError('Invalid request.');
  const input=JSON.parse(new TextDecoder().decode(await readBounded(request,400000)));if(!input||typeof input!=='object'||Array.isArray(input))throw new RequestError('Invalid request.');
  const dataset=datasetKey.parse(input.dataset);await validDataset(owner,dataset);const revision=Number(input.revision)||0;
+ // Settings, the employee match and machine downloads belong to Machine Setup; the fetch history is also written by Time Updation.
+ const actor=await hrIdentity(owner);await needScreen(owner,actor,input.action==='add-history'?['utilities/biometric','transaction/time']:'utilities/biometric','edit');
+ if(input.action!=='add-history'&&unitLimited(actor))await refuse(owner,actor,companyWide,'utilities/biometric');
  if(input.action==='save-config'){
   const url=cleanBioUrl(String(input.config?.url||''));if(!url)throw new RequestError('Enter the address as http://127.0.0.1:5180 (or http://<computer>:<port>).');
   const devices=Array.isArray(input.config?.devices)?[...new Set((input.config.devices as unknown[]).map(Number).filter(n=>Number.isInteger(n)&&n>0))].slice(0,50):[];
-  return Response.json({revision:await write(owner,dataset,'config',{url,devices},revision)});}
+  const saved=await write(owner,dataset,'config',{url,devices},revision);await note(owner,'edit',`Saved the biometric machine settings (${devices.length} machine${devices.length===1?'':'s'} ticked)`,{screen:'utilities/biometric',dataset});
+  return Response.json({revision:saved});}
  if(input.action==='save-map'){
   const raw=input.map&&typeof input.map==='object'&&!Array.isArray(input.map)?input.map as Record<string,unknown>:null;if(!raw)throw new RequestError('Invalid request.');
   const map:BioMap={};for(const [k,v] of Object.entries(raw)){const key=k.trim(),value=String(v??'').trim();if(!key||key.length>40||!value||value.length>80)continue;map[key]=value;}
@@ -100,7 +126,8 @@ export async function POST(request:Request){try{
   if(Object.values(map).some(v=>v!=='-')){const ids=[...new Set(Object.values(map).filter(v=>v!=='-'))];const found=new Set<string>();
    for(let i=0;i<ids.length;i+=90){const part=ids.slice(i,i+90);const rows=await db().prepare(`SELECT id FROM employees WHERE owner=? AND dataset=? AND deleted=0 AND id IN (${part.map(()=>'?').join(',')})`).bind(owner,dataset,...part).all<{id:string}>();for(const r of rows.results)found.add(r.id);}
    for(const [k,v] of Object.entries(map))if(v!=='-'&&!found.has(v))delete map[k];}
-  return Response.json({revision:await write(owner,dataset,'map',map,revision)});}
+  const saved=await write(owner,dataset,'map',map,revision);await note(owner,'edit','Saved the machine user to employee match',{screen:'utilities/biometric',dataset});
+  return Response.json({revision:saved});}
  if(input.action==='add-history'){
   const e=input.entry||{};const entry:BioHistoryEntry={at:new Date().toISOString(),month:/^\d{4}-\d{2}$/.test(e.month)?e.month:'',from:Number(e.from)||0,to:Number(e.to)||0,employees:Number(e.employees)||0,days:Number(e.days)||0,unmatched:Number(e.unmatched)||0,calculated:!!e.calculated};
   for(let attempt=0;attempt<3;attempt++){const h=await read<BioHistoryEntry[]>(owner,dataset,'history',[]);try{await write(owner,dataset,'history',[entry,...h.value].slice(0,100),h.revision);return Response.json({ok:true});}catch(error){if(!(error instanceof RequestError)||error.status!==409)throw error;}}
@@ -109,9 +136,11 @@ export async function POST(request:Request){try{
  if(input.action==='download'||input.action==='auto'){
   const settings=await settingsOf(owner,dataset);const base=settings.config.url;
   if(input.action==='auto'){const minutes=Number(input.minutes);if(![0,15,30,60,120].includes(minutes))throw new RequestError('Choose 0, 15, 30, 60 or 120 minutes.');
-   await app(base,'/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({autoMinutes:minutes})});return Response.json({ok:true});}
+   await app(base,'/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({autoMinutes:minutes})});await note(owner,'edit',`Set the automatic machine download to ${minutes?'every '+minutes+' minutes':'off'}`,{screen:'utilities/biometric',dataset});return Response.json({ok:true});}
   const id=Number(input.deviceId);if(!Number.isInteger(id)||id<1)throw new RequestError('Choose a machine.');
   const result=await app<{users:number;logs:number;newLogs:number;seconds:number}>(base,`/api/devices/${id}/download`,{method:'POST',timeout:300000});
+  await note(owner,'edit',`Downloaded the punches of machine ${id} (${result.newLogs} new)`,{screen:'utilities/biometric',dataset});
   return Response.json(result);}
  throw new RequestError('Unknown action.');
 }catch(error){if(error instanceof SyntaxError)return Response.json({error:'Invalid request.'},{status:400});return fail(error);}}
+export const POST=drained(postHandler);

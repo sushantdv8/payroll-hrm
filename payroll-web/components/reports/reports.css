@@ -64,6 +64,53 @@
 .rpt-tree button::before{content:'⊞ ';color:#777}
 .rpt-tree button.is-active{background:#0a64d6;color:#fff}
 .rpt-canvas{flex:1;overflow:auto;padding:0 16px 16px}
+/* The viewer of report-viewer.tsx: employees and their documents on the left (opens and closes), the page(s) on the right */
+.rpt-viewer.adv{display:flex;flex-direction:column;outline:none}
+.rpt-viewer.adv .rpt-body{height:clamp(520px,calc(100vh - 220px),1100px);min-height:0;max-height:none}
+.rpt-viewer.adv .rpt-canvas{min-width:0;scrollbar-gutter:stable}
+.rpt-viewer.adv.is-max{position:fixed;inset:0;z-index:70}
+.rpt-viewer.adv.is-max .rpt-body{flex:1;height:auto}
+.rpt-toolbar .rpt-page-input{width:54px;text-align:center}
+.rpt-menu-wrap{position:relative}
+.rpt-menu{position:absolute;top:calc(100% + 4px);left:0;z-index:6;display:flex;flex-direction:column;min-width:260px;padding:4px;background:#fff;border:1px solid #9aa7b3;border-radius:4px;box-shadow:0 6px 18px rgba(0,0,0,.2)}
+.rpt-toolbar .rpt-menu button{display:block;width:100%;height:auto;padding:6px 10px;text-align:left;font:inherit;font-size:.82rem;border-radius:3px}
+.rpt-side{display:flex;flex-direction:column;flex:none;min-height:0;background:#fff;font-size:.8rem}
+.rpt-side-head{display:flex;flex-direction:column;gap:4px;padding:6px;border-bottom:1px solid #e1e6eb;background:#f7f9fb}
+.rpt-side-search{display:flex;align-items:center;gap:5px;padding:2px 6px;border:1px solid #9aa7b3;border-radius:3px;background:#fff;color:#667}
+.rpt-side-search input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;color:#111}
+.rpt-side-search button{display:grid;place-items:center;padding:0;border:0;background:transparent;color:#667;cursor:pointer}
+.rpt-side-tools{display:flex;align-items:center;gap:4px;color:#556;font-size:.74rem}
+.rpt-side-tools button{display:grid;place-items:center;width:24px;height:22px;border:1px solid transparent;border-radius:3px;background:transparent;cursor:pointer}
+.rpt-side-tools button:hover{border-color:#9aa7b3;background:#fff}
+.rpt-side-tools span{margin-left:auto}
+.rpt-side-scroll{flex:1;min-height:0;overflow:auto}
+.rpt-side-none{margin:0;padding:12px;color:#667}
+.rpt-trow{position:absolute;left:0;right:0;display:flex;align-items:center;height:24px;white-space:nowrap}
+.rpt-trow:hover{background:#eef4fb}
+.rpt-trow button{border:0;background:transparent;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.rpt-trow .tw{display:grid;place-items:center;flex:none;width:22px;height:24px;color:#556}
+.rpt-trow .lb{flex:1;min-width:0;height:24px;padding:0 8px;overflow:hidden;text-overflow:ellipsis}
+.rpt-trow .ic{display:inline;margin-right:6px;vertical-align:-2px;color:#667}
+.rpt-trow.is-group{font-weight:700;background:#f4f7fa;border-bottom:1px solid #e6ebf0}
+.rpt-trow.is-group .lb{padding-left:2px}
+.rpt-trow.is-group.is-current{background:#e3eefb;color:#0a4aa6}
+.rpt-trow.is-nested .lb{padding-left:34px}
+.rpt-trow.is-flat .lb::before{content:'⊞ ';color:#777}
+.rpt-trow.is-active,.rpt-trow.is-active:hover{background:#0a64d6;color:#fff}
+.rpt-trow.is-active .ic{color:#fff}
+.rpt-trow .ct{flex:none;min-width:18px;margin:0 8px 0 4px;padding:0 6px;border-radius:9px;background:#e4e9ef;color:#556;font-size:.68rem;font-weight:600;text-align:center}
+.rpt-split{flex:none;width:6px;background:#c5ced6;cursor:col-resize;touch-action:none}
+.rpt-split:hover,.rpt-split:active{background:#0a64d6}
+.rpt-crumb{position:sticky;top:0;z-index:3;margin:0 -16px 12px;padding:5px 16px 4px;background:#fff;border-bottom:1px solid #c5ced6;font-size:.8rem}
+.rpt-crumb-top{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 12px}
+.rpt-crumb b{font-size:.9rem}
+.rpt-crumb .pos{margin-left:auto;color:#556}
+.rpt-doctabs{position:relative;display:flex;gap:5px;margin-top:4px;padding-bottom:3px;overflow-x:auto;white-space:nowrap;scrollbar-width:thin}
+.rpt-doctabs::-webkit-scrollbar{height:6px}
+.rpt-doctabs button{flex:none;padding:1px 10px;border:1px solid #c5ced6;border-radius:12px;background:#f4f7fa;font:inherit;font-size:.74rem;cursor:pointer}
+.rpt-doctabs button:hover{background:#e6eef8;border-color:#9fb4cc}
+.rpt-doctabs button.is-on{background:#0a64d6;border-color:#0a64d6;color:#fff;font-weight:600}
+.rpt-sheet-cap{width:max-content;max-width:100%;margin:0 auto 6px;padding:1px 10px;border:1px solid #c5ced6;border-radius:3px;background:#fff;color:#334;font-size:.75rem}
 .rpt-tab-label{display:inline-block;background:#fff;border:1px solid #c5ced6;border-top:0;padding:2px 10px;font-size:.78rem;margin-bottom:12px}
 .rpt-empty{padding:40px;text-align:center;color:#555}
 .rpt-paper{background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.25);margin:0 auto 18px;padding:9mm 9mm;color:#000;font-family:'Times New Roman',Times,serif;font-size:11px;box-sizing:border-box}

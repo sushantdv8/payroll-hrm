@@ -86,6 +86,14 @@ CREATE TABLE IF NOT EXISTS hr_users (
   revision INTEGER NOT NULL, active INTEGER NOT NULL DEFAULT 1, PRIMARY KEY (owner, username)
 );
 CREATE TABLE IF NOT EXISTS hr_write_guard (id TEXT COLLATE "C" PRIMARY KEY, ok INTEGER NOT NULL CHECK (ok = 1));
+-- Activity log of every login (sign-ins, screens opened, records changed, prints, refused attempts); rows are only ever added.
+CREATE TABLE IF NOT EXISTS activity_log (
+  id TEXT COLLATE "C" PRIMARY KEY, owner TEXT COLLATE "C" NOT NULL, ts TEXT COLLATE "C" NOT NULL, actor TEXT COLLATE "C" NOT NULL, role TEXT COLLATE "C" NOT NULL DEFAULT '',
+  dataset TEXT COLLATE "C" NOT NULL DEFAULT '', kind TEXT COLLATE "C" NOT NULL, screen TEXT COLLATE "C" NOT NULL DEFAULT '', summary TEXT COLLATE "C" NOT NULL,
+  detail TEXT COLLATE "C" NOT NULL DEFAULT '', ok INTEGER NOT NULL DEFAULT 1
+);
+CREATE INDEX IF NOT EXISTS activity_log_actor ON activity_log (owner, actor, ts);
+CREATE INDEX IF NOT EXISTS activity_log_ts ON activity_log (owner, ts);
 
 -- Object store (what Cloudflare R2 held): source archive parts, month indexes, employee photos, HR documents.
 CREATE TABLE IF NOT EXISTS objects (

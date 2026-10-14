@@ -2,7 +2,7 @@
 import {hrModules} from './hrm';
 export type SourceRef={table:string;title?:string};
 export type Screen=
- |{kind:'employees'|'attendance'|'times'|'holidays'|'muster'|'salary'|'salary-sheets'|'import'|'join-resign'|'datasets'|'salary-entry'|'salary-delete'|'resignation'|'bonus-reports'|'pf19'|'pf-kyc'|'biometric'}
+ |{kind:'employees'|'attendance'|'times'|'holidays'|'muster'|'salary'|'salary-sheets'|'import'|'join-resign'|'datasets'|'salary-entry'|'salary-delete'|'resignation'|'bonus-reports'|'pf19'|'pf-kyc'|'biometric'|'users'|'activity'}
  |{kind:'source';tables:SourceRef[];note?:string}
  |{kind:'master';tables:string[];note?:string}
  |{kind:'report';report:string}
@@ -43,8 +43,6 @@ export const menu:MenuGroup[]=[
  {id:'transaction',label:'Transaction',items:[
   {id:'transaction/shift-change',label:'Monthly Shift Change',screen:mst('tbshiftm','tbeshift')},
   {id:'transaction/time',label:'Time Updation',separatorBefore:true,screen:{kind:'attendance'}},
-  // Biometric machines (through the Biometric Attendance app): connection, machines, employee match, fetch history.
-  {id:'transaction/biometric',label:'Biometric Machine Setup',screen:{kind:'biometric'}},
   {id:'transaction/leave',label:'Leave Updation',screen:mst('tblvtentry','tblvopen2')},
   {id:'transaction/loan',label:'Loan Updation',screen:mst('tbloan')},
   {id:'transaction/deduction',label:'Deduction Updation',screen:mst('tbmded')},
@@ -105,12 +103,16 @@ export const menu:MenuGroup[]=[
   {id:'hr/reports',label:'HR Reports & Annual Finance',screen:{kind:'hr',view:'reports'}},
   {id:'hr/letters',label:'HR Letters',screen:{kind:'hr',view:'letters'}},
   {id:'hr/settings',label:'Company HR & Payroll Rules',screen:{kind:'hr',view:'settings'}},
-  {id:'hr/users',label:'Users & Unit Permissions',screen:{kind:'hr',view:'users'}},
   {id:'hr/audit',label:'Approval & Change History',screen:{kind:'hr',view:'audit'}},
  ]},
  {id:'utilities',label:'Utilities',items:[
   {id:'utilities/datasets',label:'Company / Year Selection',screen:{kind:'datasets'}},
   {id:'utilities/import',label:'Import Records',screen:{kind:'import'}},
+  // Biometric machines (through the Biometric Attendance app): connection, machines, employee match, fetch history.
+  {id:'utilities/biometric',label:'Biometric Machine Setup',screen:{kind:'biometric'}},
+  // Logins: the Super Admin makes Admins and Users, an Admin makes Users; each login gets the rights chosen here. Every login keeps an activity log.
+  {id:'utilities/users',label:'Users & Roles',separatorBefore:true,screen:{kind:'users'}},
+  {id:'utilities/activity',label:'Activity Log',screen:{kind:'activity'}},
  ]},
 ];
 

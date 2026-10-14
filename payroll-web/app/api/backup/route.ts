@@ -1,6 +1,6 @@
 import {hrIdentity,hrEmployees,assertHr} from '@/lib/hr-store';
 import {backupBundleSchema} from '@/lib/backup';
-import {ownerId,db,checkOrigin,readBounded,RequestError,fail} from '@/lib/server-store';
+import {ownerId,db,checkOrigin,readBounded,RequestError,fail,drained} from '@/lib/server-store';
 export const dynamic='force-dynamic';
 export async function GET(request:Request){try{
   const owner=await ownerId();
@@ -13,4 +13,5 @@ export async function GET(request:Request){try{
   return Response.json({settings:row?JSON.parse(row.data):null,importId:row?.import_id||null},{headers:{'Cache-Control':'no-store'}});
 }catch(error){return fail(error);}}
 
-export async function POST(request:Request){try{await ownerId();checkOrigin(request);throw new RequestError('Use the full data import screen to load or resume this database.',409);}catch(error){return fail(error);}}
+async function postHandler(request:Request){try{await ownerId();checkOrigin(request);throw new RequestError('Use the full data import screen to load or resume this database.',409);}catch(error){return fail(error);}}
+export const POST=drained(postHandler);

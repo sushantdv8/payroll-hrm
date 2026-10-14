@@ -9,7 +9,7 @@ import {emptyEmployee} from '@/lib/payroll';
 import {hrReportChoices,type HrReport} from '@/lib/hr-reports';
 import {canHr} from '@/lib/hr-access';
 import {hrReportModules} from '@/lib/hr-core-reports';
-import {HrRules,HrUsers,HrDocuments,HrLetters,HrProfiles} from './hr-tools';
+import {HrRules,HrDocuments,HrLetters,HrProfiles} from './hr-tools';
 import {DocumentExpiryPanel} from './document-expiry';
 import './hr-workspace.css';
 export type HrBootstrap={rows:HrRecord[];relations:HrRecord[];employees:Employee[];identity:HrIdentity;settings:HrSettings};
@@ -22,7 +22,6 @@ export function HrWorkspace(p:Props){
  if(p.view==='dashboard')return <HrDashboard dataset={p.dataset}/>;
  if(p.view==='reports')return <HrReports dataset={p.dataset} data={data}/>;
  if(p.view==='settings')return <HrRules {...toolProps}/>;
- if(p.view==='users')return <HrUsers {...toolProps}/>;
  if(p.view==='documents')return <HrDocuments {...toolProps}/>;
  if(p.view==='letters')return <HrLetters {...toolProps}/>;
  if(p.view==='profiles')return <HrProfiles {...toolProps}/>;

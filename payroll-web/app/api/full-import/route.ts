@@ -1,12 +1,18 @@
 import {manifestSchema,packetSchema,canonical,sha256,withoutIdentity,type FullManifest} from '@/lib/full-import';
-import {ownerId,db,bucket,checkOrigin,readBounded,RequestError,fail} from '@/lib/server-store';
+import {ownerId,db,bucket,checkOrigin,readBounded,RequestError,fail,drained} from '@/lib/server-store';
+import {hrIdentity} from '@/lib/hr-store';
+import {needScreen,refuse,note} from '@/lib/guard';
+import {unitLimited} from '@/lib/unit-scope';
 export const dynamic='force-dynamic';
 type Session={id:string;dataset_key:string;manifest:string;manifest_hash:string;status:string;next_sequence:number};
 async function session(owner:string,id:unknown){if(typeof id!=='string'||!/^[a-f0-9]{64}$/.test(id))throw new RequestError('Invalid import session.');const row=await db().prepare('SELECT * FROM source_datasets WHERE id=? AND owner=?').bind(id,owner).first<Session>();if(!row)throw new RequestError('Import session not found.',404);return row;}
 async function inflate(bytes:Uint8Array){const stream=new Blob([bytes as BlobPart]).stream().pipeThrough(new DecompressionStream('gzip'));return JSON.parse(new TextDecoder().decode(await readBounded(new Request('http://archive.local',{method:'POST',body:stream,duplex:'half'} as RequestInit),8_000_000)));}
 function placeholderJSON(rows:unknown[]){return JSON.stringify(rows);}
-export async function POST(request:Request){try{
+async function postHandler(request:Request){try{
  const owner=await ownerId();checkOrigin(request);if(!request.headers.get('content-type')?.includes('application/json'))throw new RequestError('Invalid import request.');
+ const actor=await hrIdentity(owner);await needScreen(owner,actor,['utilities/import','master/import'],'add');
+ // An import brings in a whole company, so it needs a login that is not limited to some companies or locations.
+ if(unitLimited(actor)||(!actor.admin&&!actor.permissions.datasets.includes('*')))await refuse(owner,actor,'Import Records covers whole companies, so it needs a login that has All companies and All locations.','utilities/import');
  const input=JSON.parse(new TextDecoder().decode(await readBounded(request,8_500_000)));const now=new Date().toISOString();
  if(input.action==='begin'){
   const m=manifestSchema.parse(input.manifest);const hash=await sha256(canonical(m));const id=await sha256(owner+':'+m.importId);
@@ -21,6 +27,7 @@ export async function POST(request:Request){try{
    links.push(db().prepare('INSERT INTO source_employee_links(id,owner,dataset,source_key,employee_id,profile) VALUES(?,?,?,?,?,?)').bind(await sha256(owner+':'+m.dataset.key+':'+sourceKey),owner,m.dataset.key,sourceKey,e.id,'{}'));
   }
   await db().batch([db().prepare('INSERT INTO source_datasets(id,owner,dataset_key,manifest,manifest_hash,status,next_sequence,updated_at) VALUES(?,?,?,?,?,\'staging\',0,?)').bind(id,owner,m.dataset.key,JSON.stringify(m),hash,now),...links]);
+  await note(owner,'import',`Started importing ${m.dataset.companyName} (${m.dataset.key})`,{screen:'utilities/import',dataset:m.dataset.key});
   return Response.json({sessionId:id,status:'staging',nextSequence:0});
  }
  const current=await session(owner,input.sessionId);const m=JSON.parse(current.manifest) as FullManifest;
@@ -75,7 +82,8 @@ export async function POST(request:Request){try{
   await db().batch([
    db().prepare('UPDATE employees SET data=(SELECT json_set(l.profile,\'$.id\',employees.id,\'$.revision\',2) FROM source_employee_links l WHERE l.owner=employees.owner AND l.employee_id=employees.id AND l.dataset=?),revision=2,updated_at=? WHERE owner=? AND dataset=? AND import_id IS NULL AND revision=1 AND EXISTS(SELECT 1 FROM source_employee_links l WHERE l.owner=employees.owner AND l.employee_id=employees.id AND l.dataset=? AND l.profile<>\'{}\')').bind(m.dataset.key,now,owner,m.dataset.key,m.dataset.key),
    db().prepare('UPDATE source_datasets SET status=\'complete\',updated_at=? WHERE id=? AND owner=? AND next_sequence=?').bind(now,current.id,owner,m.packetCount)
-  ]);return Response.json({complete:true,counts});
+  ]);await note(owner,'import',`Finished importing ${m.dataset.companyName} (${m.dataset.key})`,{screen:'utilities/import',dataset:m.dataset.key,detail:counts});return Response.json({complete:true,counts});
  }
  throw new RequestError('Unknown import action.');
 }catch(error){if(error instanceof SyntaxError)return Response.json({error:'Invalid import file or archive.'},{status:400});return fail(error);}}
+export const POST=drained(postHandler);

@@ -1,11 +1,13 @@
 import type {ReactNode} from 'react';
 import type {AttendanceDay,AttendanceMonth,Employee} from '@/lib/payroll';
 import {dmy,type Extra} from '@/lib/report-utils';
-import type {ReportContext,ReportPage} from './report-form';
+import type {ReportContext,ReportOwner,ReportPage} from './report-form';
 
 export const chunk=<T,>(items:T[],size:number)=>{const out:T[][]=[];for(let i=0;i<items.length;i+=size)out.push(items.slice(i,i+size));return out;};
 // Imported employees are keyed by their original code, employees added in this app by their id (as /api/employee-extras returns them).
 export const extraOf=(ctx:ReportContext,e:Employee):Extra|undefined=>ctx.extras[String(e.sourceKey||e.id)];
+// The employee a page is printed for, as the viewer's group tree lists him / her: "paycode · name" (the Find box finds either).
+export const ownerOf=(e:Employee):ReportOwner=>({id:e.id,label:[e.paycode,e.name].filter(Boolean).join(' · ')});
 export const listName=(ctx:ReportContext,table:string,code:string|undefined)=>ctx.lists[table]?.find(o=>o.code===code)?.name||'';
 export const n2=(v:number|null|undefined)=>v==null||!Number.isFinite(v)?'':Number(v).toFixed(2);
 export const nz=(v:number)=>v?String(Math.round(v*100)/100):'';

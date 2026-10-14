@@ -14,6 +14,8 @@ import {NativeSelect,NativeSelectOption} from '@/components/ui/native-select';
 import {Table,TableBody,TableCell,TableHead,TableHeader,TableRow} from '@/components/ui/table';
 import {Tabs,TabsContent,TabsList,TabsTrigger} from '@/components/ui/tabs';
 import {ConfirmDelete,ErrorMessage} from './payroll-controls';
+import {mayWriteTable,employeeKeyed,isSuper} from '@/lib/access';
+import {useIdentity} from './access-context';
 import './master-entry.css';
 
 type Mode='view'|'edit'|'new';
@@ -47,6 +49,8 @@ function FieldInput({field,value,disabled,onChange,options,employees}:{field:Mas
 
 function MasterTable({dataset,table,employees,onClose}:{dataset:string;table:string;employees:Employee[];onClose?:()=>void}){
  const def=masterDef(table)!;const client=useQueryClient();const query=useMaster(dataset,table);const lookups=useLookups(dataset,def);
+ // New / Modify / Delete are rights of the screen this table belongs to (the server checks them again).
+ const me=useIdentity();const mayAdd=!me||mayWriteTable(me,table,'add'),mayEdit=!me||mayWriteTable(me,table,'edit'),mayDelete=!me||mayWriteTable(me,table,'delete');const limitedSetup=!!me&&!isSuper(me)&&!employeeKeyed(table)&&!me.permissions.units.includes('*');const setupNote='This is a set-up of the whole company: only a login that has All locations can change it.';const noRight=(ok:boolean,what:string)=>ok?undefined:limitedSetup?setupNote:`You do not have ${what} permission here.`;
  const [selectedKey,setSelectedKey]=useState<string|null>(null);const [mode,setMode]=useState<Mode>('view');const [draft,setDraft]=useState<Record<string,string>>({});
  // The original lists records by name until Code or Name is chosen under Sort On.
  const [sort,setSort]=useState<'none'|'code'|'name'>(def.classic?'none':'code');const [search,setSearch]=useState('');const [limit,setLimit]=useState(300);const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [removing,setRemoving]=useState(false);
@@ -96,12 +100,13 @@ function MasterTable({dataset,table,employees,onClose}:{dataset:string;table:str
     <div className="cm-right">
      <fieldset className="cm-form" disabled={busy}>{rowsOfForm.map(group=><div key={group[0].col} className="cm-row"><label htmlFor={`cm-${table}-${group[0].col}`}>{group[0].type==='flag'?'':group[0].label}</label><div className="cm-cell">{group.map(control)}</div></div>)}</fieldset>
      {error&&<p className="cm-error" role="alert">{error}</p>}
+     {limitedSetup&&<p className="section-help">{setupNote}</p>}
      <div className="cm-buttons">
-      <button type="button" disabled={editing||busy||(def.singleton&&!!query.data?.rows.length)} onClick={startNew}><FilePlus2 size={18} className="ic-new"/>New</button>
-      <button type="button" disabled={editing||busy||!selected} onClick={startEdit}><Pencil size={18} className="ic-mod"/>Modify</button>
+      <button type="button" disabled={editing||busy||!mayAdd||(def.singleton&&!!query.data?.rows.length)} title={noRight(mayAdd,'Add')} onClick={startNew}><FilePlus2 size={18} className="ic-new"/>New</button>
+      <button type="button" disabled={editing||busy||!mayEdit||!selected} title={noRight(mayEdit,'Edit')} onClick={startEdit}><Pencil size={18} className="ic-mod"/>Modify</button>
       <button type="button" disabled={!editing||busy} onClick={save}><Save size={18} className="ic-save"/>{busy?'Saving…':'Save'}</button>
       <button type="button" disabled={!editing||busy} onClick={cancel}><Ban size={18} className="ic-cancel"/>Cancel</button>
-      <button type="button" disabled={editing||busy||!selected} onClick={()=>setRemoving(true)}><X size={18} className="ic-del"/>Delete</button>
+      <button type="button" disabled={editing||busy||!mayDelete||!selected} title={noRight(mayDelete,'Delete')} onClick={()=>setRemoving(true)}><X size={18} className="ic-del"/>Delete</button>
       <button type="button" disabled={editing||busy||!onClose} onClick={onClose}><Lock size={18} className="ic-close"/>Close</button>
      </div>
     </div>
@@ -126,12 +131,13 @@ function MasterTable({dataset,table,employees,onClose}:{dataset:string;table:str
      return f.col===def.auto&&mode==='new'?<label key={f.col}>{f.label}<Input disabled value="" placeholder="Auto number"/></label>:<FieldInput key={f.col} field={f} value={value} disabled={locked} onChange={v=>setDraft(d=>({...d,[f.col]:v}))} options={f.type==='lookup'?lookups.get(f.lookup!):f.options} employees={employees}/>;})}</div></div>)}</fieldset>
     :<div className="empty-state"><h2>Select a record</h2><p>Choose a row on the left, or use New to add one.</p></div>}
    {error&&<ErrorMessage message={error}/>}
+   {limitedSetup&&<p className="section-help">{setupNote}</p>}
    <div className="master-toolbar">
-    <Button variant="outline" disabled={editing||busy||(def.singleton&&!!query.data?.rows.length)} onClick={startNew}><FilePlus2 size={16}/>New</Button>
-    <Button variant="outline" disabled={editing||busy||!selected} onClick={startEdit}><Pencil size={16}/>Modify</Button>
+    <Button variant="outline" disabled={editing||busy||!mayAdd||(def.singleton&&!!query.data?.rows.length)} title={noRight(mayAdd,'Add')} onClick={startNew}><FilePlus2 size={16}/>New</Button>
+    <Button variant="outline" disabled={editing||busy||!mayEdit||!selected} title={noRight(mayEdit,'Edit')} onClick={startEdit}><Pencil size={16}/>Modify</Button>
     <Button disabled={!editing||busy} onClick={save}><Save size={16}/>{busy?'Saving…':'Save'}</Button>
     <Button variant="outline" disabled={!editing||busy} onClick={cancel}><Ban size={16}/>Cancel</Button>
-    <Button variant="outline" disabled={editing||busy||!selected} onClick={()=>setRemoving(true)}><Trash2 size={16}/>Delete</Button>
+    <Button variant="outline" disabled={editing||busy||!mayDelete||!selected} title={noRight(mayDelete,'Delete')} onClick={()=>setRemoving(true)}><Trash2 size={16}/>Delete</Button>
     <Button variant="ghost" disabled={editing||busy} onClick={()=>{setSelectedKey(null);setDraft({});}}><X size={16}/>Close</Button>
    </div>
   </section>

@@ -1,4 +1,4 @@
-/* Transaction › Biometric Machine Setup and the Biometric Fetch dialog of Time Updation (classic window, as time-office.css). */
+/* Utilities › Biometric Machine Setup and the Biometric Fetch dialog of Time Updation (classic window, as time-office.css). */
 .bio-body{display:flex;flex-direction:column;gap:10px;padding:10px;font-size:.84rem}
 .bio-connect{gap:6px 10px}
 .bio-url{display:flex;align-items:center;gap:6px;font-weight:700;flex:1 1 320px}

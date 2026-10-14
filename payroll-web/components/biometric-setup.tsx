@@ -8,8 +8,9 @@ import type {Employee} from '@/lib/payroll';
 import {requestJson} from '@/lib/client-api';
 import {monthLabel,realResignDate} from '@/lib/report-utils';
 import {DEFAULT_BIO_URL,matchAll,type BioMap,type BioSettings,type BioState,type BioUser,type Match} from '@/lib/biometric';
+import {useCanOpen} from './access-context';
 
-// Transaction › Biometric Machine Setup: where the punches come from (the Biometric Attendance app), which machines
+// Utilities › Biometric Machine Setup: where the punches come from (the Biometric Attendance app), which machines
 // belong to this company, which machine user ID is which employee, and the fetch history. The punches themselves are
 // copied into Time Updation with its Biometric Fetch button.
 type Tab='machines'|'match'|'history';
@@ -19,7 +20,7 @@ const when=(v:string|null|undefined)=>v?v.replace('T',' ').slice(0,16):'—';
 const HOW:Record<Match['how'],string>={manual:'Chosen',ignored:'Not an employee',card:'Card No.',paycode:'Paycode',none:'Not matched'};
 
 export function BiometricSetup({dataset,employees,title,onOpen}:{dataset:string;employees:Employee[];title:string;onOpen?:(screen:string)=>boolean}){
- const client=useQueryClient();
+ const client=useQueryClient();const canOpen=useCanOpen();
  const settingsQ=useQuery({queryKey:['biometric',dataset,'settings'],queryFn:({signal})=>requestJson<BioSettings>('/api/biometric?'+new URLSearchParams({dataset,view:'settings'}),{signal})});
  const stateQ=useQuery({queryKey:['biometric',dataset,'state'],queryFn:({signal})=>requestJson<BioState&{url:string}>('/api/biometric?'+new URLSearchParams({dataset,view:'state'}),{signal}),enabled:settingsQ.isSuccess,retry:false});
  const [tab,setTab]=useState<Tab>('machines');
@@ -59,7 +60,7 @@ export function BiometricSetup({dataset,employees,title,onOpen}:{dataset:string;
     <p className="to-note">The Biometric Attendance app (installed with BiometricAttendance_Setup) downloads the machines and keeps every punch. Start it on the computer that is on the machines&apos; network; this screen reads it from there. Use http://127.0.0.1:5180 when it runs on this computer.</p>
    </fieldset>
    <div className="bio-tabs" role="tablist">{([['machines','Machines'],['match','Employee Match'],['history','Fetch History']] as const).map(([v,l])=><button key={v} type="button" role="tab" aria-selected={tab===v} className={tab===v?'is-active':''} onClick={()=>setTab(v)}>{l}</button>)}
-    {onOpen&&<button type="button" className="to-btn bio-go" onClick={()=>onOpen('transaction/time')}>Go to Time Updation</button>}</div>
+    {onOpen&&canOpen('transaction/time')&&<button type="button" className="to-btn bio-go" onClick={()=>onOpen('transaction/time')}>Go to Time Updation</button>}</div>
    {settingsQ.error&&<p className="bio-msg is-bad">{settingsQ.error.message}</p>}
    {tab==='machines'&&<section className="bio-pane">
     {stateQ.isPending&&settingsQ.isSuccess&&<p className="to-note">Connecting to the Biometric Attendance app…</p>}

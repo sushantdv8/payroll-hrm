@@ -3,6 +3,8 @@ import {ownerId,db,fail,RequestError,validDataset} from '@/lib/server-store';
 import {readSourceTable,type SourceTable} from '@/lib/source-archive';
 import {datasetKey} from '@/lib/full-import';
 import {attendanceCodes,monthDays,type AttendanceMonth} from '@/lib/payroll';
+import {hrIdentity,assertHr} from '@/lib/hr-store';
+import {employeeScope} from '@/lib/unit-scope';
 export const dynamic='force-dynamic';
 
 // The original software keeps a second attendance register (tbtimed / tbtimehd / tbmatdd) that its
@@ -16,7 +18,7 @@ const clock=(v:string|undefined)=>/^([01]\d|2[0-3]):[0-5]\d$/.test(v||'')?v!:'';
 const hours=(v:string|undefined)=>/^([01]?\d|2[0-3]):[0-5]\d$/.test(v||'')&&v!=='00:00'&&v!=='0:00'?v!:'';
 
 export async function GET(request:Request){try{
- const owner=await ownerId();const url=new URL(request.url);const dataset=datasetKey.parse(url.searchParams.get('dataset'));await validDataset(owner,dataset);
+ const owner=await ownerId();const url=new URL(request.url);const dataset=datasetKey.parse(url.searchParams.get('dataset'));await validDataset(owner,dataset);const actor=await hrIdentity(owner);assertHr(actor,dataset,'attendance');
  const month=url.searchParams.get('month')||'';if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))throw new RequestError('Choose a valid month.');
  const monthNo=monthNoOfDataset(dataset,month);
  const edits=await db().prepare("SELECT m.record_key,m.data,m.revision FROM master_records m JOIN employees e ON e.id=substr(m.record_key,1,instr(m.record_key,'|')-1) AND e.owner=m.owner AND e.deleted=0 WHERE m.owner=? AND m.dataset=? AND m.table_name='register' AND m.deleted=0 AND m.record_key LIKE ?").bind(owner,dataset,'%|'+month).all<{record_key:string;data:string;revision:number}>();
@@ -38,5 +40,6 @@ export async function GET(request:Request){try{
    out.push({employeeId,month,revision:0,sourceDataset:dataset,sourceKey:r.emp_code,days,totals:t?{worked:num(t.wd),weeklyOff:num(t.wo),holiday:num(t.hd),leave,payable:num(t.pd),absent:num(t.ab)}:{worked:'',weeklyOff:'',holiday:'',leave:'',payable:'',absent:''},leaveLedger:[]});
   }}
  out.push(...edited.values());
- return Response.json({attendance:out,available},{headers:{'Cache-Control':'no-store'}});
+ const scope=await employeeScope(owner,dataset,actor);
+ return Response.json({attendance:scope?out.filter(a=>scope.ids.has(a.employeeId)):out,available},{headers:{'Cache-Control':'no-store'}});
 }catch(error){return fail(error);}}

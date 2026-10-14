@@ -1,8 +1,10 @@
 import {ownerId,db,bucket,readBounded,RequestError,fail} from '@/lib/server-store';
 import {datasetKey,type FullManifest} from '@/lib/full-import';
+import {hrIdentity} from '@/lib/hr-store';
+import {isSuper} from '@/lib/access';
 export const dynamic='force-dynamic';
 export async function GET(request:Request){try{
- const owner=await ownerId();const url=new URL(request.url);const key=datasetKey.parse(url.searchParams.get('dataset'));const source=await db().prepare('SELECT id,manifest FROM source_datasets WHERE owner=? AND dataset_key=? AND status=\'complete\'').bind(owner,key).first<{id:string;manifest:string}>();
+ const owner=await ownerId();if(!isSuper(await hrIdentity(owner)))throw new RequestError('The original source tables are for the Super Admin only.',403);const url=new URL(request.url);const key=datasetKey.parse(url.searchParams.get('dataset'));const source=await db().prepare('SELECT id,manifest FROM source_datasets WHERE owner=? AND dataset_key=? AND status=\'complete\'').bind(owner,key).first<{id:string;manifest:string}>();
  if(!source)return Response.json({tables:[],issues:[],complete:false},{headers:{'Cache-Control':'no-store'}});const m=JSON.parse(source.manifest) as FullManifest;const tableName=url.searchParams.get('table');
  if(!tableName)return Response.json({complete:true,companyName:m.dataset.companyName,year:m.dataset.year,counts:m.expected,tables:m.tables.map(t=>({name:t.name,rowCount:t.rowCount,columns:t.columns,parts:t.parts.length})),issues:m.issues},{headers:{'Cache-Control':'no-store'}});
  const table=m.tables.find(t=>t.name===tableName);if(!table)throw new RequestError('Original table not found.',404);

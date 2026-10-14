@@ -27,6 +27,8 @@ const SESSION_COOKIE='pw_session_'+instanceId;
 const MAX_WINDOWS=30;
 // The data imported on the original computer belongs to this local user id.
 const USER={id:'local_seedy',email:'admin@payroll.local',name:'Admin'};
+// Secret of this run, given to the program's servers: with it (and only with it) sign-ins and sign-outs can be written to the activity log.
+const INTERNAL_KEY=crypto.randomBytes(24).toString('hex');
 
 // Sign-in gate: nothing of the workspace is served before a login ID and a password are given. The login ID box comes
 // first; the password box appears once the right ID has been typed. Sessions live in memory only, so every start of the
@@ -110,7 +112,7 @@ const env={...process.env,CLOUDFLARE_CF_FETCH_ENABLED:'false',WRANGLER_SEND_METR
  WRANGLER_LOG_PATH:path.join(dataRoot,'logs'),WRANGLER_REGISTRY_PATH:path.join(dataRoot,'registry'),MINIFLARE_REGISTRY_PATH:path.join(dataRoot,'mf-registry'),
  XDG_CONFIG_HOME:path.join(dataRoot,'config'),WRANGLER_HIDE_BANNER:'true',CI:'true',NO_COLOR:'1'};
 say(`Starting Payroll Workspace (data: ${stateDir}) ...`);
-function startBackend(port,state){const child=spawn(process.execPath,[path.join(appDir,'node_modules','wrangler','bin','wrangler.js'),'dev','--config',path.join(appDir,'dist','server','wrangler.json'),'--local','--persist-to',state,'--ip','127.0.0.1','--port',String(port),'--inspector-port','0','--show-interactive-dev-session=false','--log-level','warn'],{cwd:appDir,env,windowsHide:true,stdio:['ignore','pipe','pipe']});child.stdout.pipe(log,{end:false});child.stderr.pipe(log,{end:false});return child;}
+function startBackend(port,state){const child=spawn(process.execPath,[path.join(appDir,'node_modules','wrangler','bin','wrangler.js'),'dev','--config',path.join(appDir,'dist','server','wrangler.json'),'--local','--persist-to',state,'--ip','127.0.0.1','--port',String(port),'--inspector-port','0','--show-interactive-dev-session=false','--log-level','warn','--var','PAYROLL_INTERNAL_KEY:'+INTERNAL_KEY],{cwd:appDir,env,windowsHide:true,stdio:['ignore','pipe','pipe']});child.stdout.pipe(log,{end:false});child.stderr.pipe(log,{end:false});return child;}
 const server=startBackend(inner,stateDir),editableServer=startBackend(editableInner,editableStateDir);
 let stopping=false;let biometric=null;
 function stop(code=0){if(stopping)return;stopping=true;say('Stopping Payroll Workspace ...');for(const child of [server,editableServer,biometric])if(child)try{execFile('taskkill',['/PID',String(child.pid),'/T','/F'],{windowsHide:true});}catch{}setTimeout(()=>process.exit(code),4000);}
@@ -137,6 +139,16 @@ async function locationsOf(key,mode='normal'){
  return ((await r.json()).names?.locations||[]).map(String).filter(Boolean).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
 }
 const json=(res,code,body,extra={})=>res.writeHead(code,{'Content-Type':'application/json','Cache-Control':'no-store',...extra}).end(JSON.stringify(body));
+// Every sign-in, failed sign-in and sign-out goes to the activity log of the workspace it belongs to (the editable or the original copy: each keeps its own logins and log). A problem with the log never stops the sign-in.
+async function report(event,username,company,summary='',mode='editable'){
+ const origin=mode==='editable'?editableOrigin:innerOrigin;
+ try{await fetch(origin+'/api/activity',{method:'POST',headers:{'Content-Type':'application/json',Origin:origin,'x-payroll-internal':INTERNAL_KEY,'oai-authenticated-user-id':USER.id,'oai-authenticated-user-email':USER.email,'oai-authenticated-user-username':'admin01'},body:JSON.stringify({internal:true,event,username:String(username||'').slice(0,60),dataset:/^[a-zA-Z0-9_-]{1,64}$/.test(company||'')?company:'',summary:summary.slice(0,200)}),signal:AbortSignal.timeout(8000)});}catch{}
+}
+// The workspaces (editable / original) that have an active login with this ID. A login made in the program lives in the workspace it was made in.
+async function whereExists(id){
+ const found=await Promise.all([['editable',editableOrigin],['normal',innerOrigin]].map(async([mode,origin])=>{try{const r=await fetch(origin+'/api/hr-login?username='+encodeURIComponent(id),{headers:{Origin:origin,'oai-authenticated-user-id':USER.id,'oai-authenticated-user-email':USER.email,'oai-authenticated-user-username':'admin01'},signal:AbortSignal.timeout(8000)});return r.ok&&(await r.json()).exists===true?mode:null;}catch{return null;}}));
+ return found.filter(Boolean);
+}
 // The address the browser used (localhost or 127.0.0.1), so cookies and links stay on the same host name.
 const hostOf=req=>String(req.headers.host||'').replace(/:\d+$/,'')==='127.0.0.1'?'127.0.0.1':'localhost';
 const wantsPage=(req,u)=>req.method==='GET'&&!u.pathname.startsWith('/api/')&&String(req.headers.accept||'').includes('text/html');
@@ -160,10 +172,10 @@ async function openWindow(session){
     if(wantsPage(req,u)){res.writeHead(302,{Location:mainUrl(req),'Cache-Control':'no-store'}).end();return;}
     json(res,401,{error:'Please sign in again.'});return;}
    if(u.pathname==='/signin-with-chatgpt'){res.writeHead(302,{Location:'/'}).end();return;}
-   if(u.pathname==='/__workspace'){json(res,200,{company:session.company,location:session.location||'',mode:'editable',username:session.username||'admin01'});return;}
+   if(u.pathname==='/__workspace'){json(res,200,{company:session.company,location:session.location||'',mode:session.mode==='editable'?'editable':'original',username:session.username||'admin01'});return;}
    // Exit in the menu signs out of this window only: its session ends, its address closes and the sign-in page comes back; the program and other windows keep running.
    if(u.pathname==='/signout-with-chatgpt'){closeWindow(port);res.writeHead(302,{Location:mainUrl(req),'Set-Cookie':`${cookieName}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`,'Cache-Control':'no-store'}).end();return;}
-   const headers={};for(const [k,v] of Object.entries(req.headers))if(!k.startsWith('oai-authenticated-user-'))headers[k]=v;
+   const headers={};for(const [k,v] of Object.entries(req.headers))if(!k.startsWith('oai-authenticated-user-')&&k!=='x-payroll-internal')headers[k]=v;
    if(headers.cookie){const rest=String(headers.cookie).split(/;\s*/).filter(c=>!/^pw_(session|workcopy_session|company|mode)/.test(c));if(rest.length)headers.cookie=rest.join('; ');else delete headers.cookie;}
    headers.host=`127.0.0.1:${targetPort}`;if(headers.origin===`http://localhost:${port}`||headers.origin===`http://127.0.0.1:${port}`)headers.origin=targetOrigin;
    if(headers.referer)headers.referer=String(headers.referer).replace(/^http:\/\/(localhost|127\.0\.0\.1):\d+/,targetOrigin);
@@ -182,7 +194,7 @@ async function openWindow(session){
  throw new Error('No free port for the company window.');
 }
 function closeWindow(port){
- const w=windows.get(port);if(!w)return;windows.delete(port);sessions.delete(w.session.token);
+ const w=windows.get(port);if(!w)return;windows.delete(port);sessions.delete(w.session.token);void report('logout',w.session.username,w.session.company,'Signed out',w.session.mode);
  // Lets the redirect that signs the window out reach the browser, then drops what is left of its connections.
  setTimeout(()=>{try{w.server.close();w.server.closeAllConnections?.();}catch{}},500).unref();
  say(`Signed out of ${w.session.company} (${w.session.username}) on port ${port}. ${windows.size} window(s) open.`);
@@ -204,8 +216,9 @@ const proxy=http.createServer((req,res)=>{
    const id=typeof body?.id==='string'?body.id.trim():'',password=typeof body?.password==='string'?body.password:'';
    // Both hashes are always compared so the answer does not show which of the two was wrong.
    let mode=loginMode(id,password),username='admin01',permissions=null;
-   if(!mode&&id.toLowerCase()!=='admin01'){try{const auth=await fetch(editableOrigin+'/api/hr-login',{method:'POST',headers:{'Content-Type':'application/json',Origin:editableOrigin,'oai-authenticated-user-id':USER.id,'oai-authenticated-user-email':USER.email,'oai-authenticated-user-username':'admin01'},body:JSON.stringify({username:id,password}),signal:AbortSignal.timeout(15000)});if(auth.ok){const result=await auth.json();mode='editable';username=result.username;permissions=result.permissions;}}catch{}}
-   if(!mode){say(`Sign-in refused for "${id.slice(0,40)}": wrong ID or password (${failures+1} of 5 before a 1 minute lock).`);if(++failures>=5){failures=0;lockedUntil=Date.now()+60000;}return send(401,{error:'Wrong password.'});}
+   // A login made in the program belongs to the workspace it was made in: the editable copy is asked first, then the original one, and the login opens the workspace that knows it.
+   if(!mode&&id.toLowerCase()!=='admin01'){for(const [workspace,origin] of [['editable',editableOrigin],['normal',innerOrigin]]){try{const auth=await fetch(origin+'/api/hr-login',{method:'POST',headers:{'Content-Type':'application/json',Origin:origin,'oai-authenticated-user-id':USER.id,'oai-authenticated-user-email':USER.email,'oai-authenticated-user-username':'admin01'},body:JSON.stringify({username:id,password}),signal:AbortSignal.timeout(15000)});if(auth.ok){const result=await auth.json();mode=workspace;username=result.username;permissions=result.permissions;break;}}catch{}}}
+   if(!mode){say(`Sign-in refused for "${id.slice(0,40)}": wrong ID or password (${failures+1} of 5 before a 1 minute lock).`);void whereExists(id).then(where=>Promise.all((where.length?where:['editable']).map(workspace=>report('login-failed',id,'','Sign-in failed (wrong password)',workspace))));if(++failures>=5){failures=0;lockedUntil=Date.now()+60000;}return send(401,{error:'Wrong password.'});}
    const key=typeof body?.company==='string'?body.company:'';
    let companies;try{companies=await companiesOffered(mode);}catch{return send(503,{error:'The program is still starting. Try again in a moment.'});}
    if(permissions&&!permissions.datasets.includes('*')&&!permissions.datasets.includes(key))return send(403,{error:'This company is not assigned to your account.'});
@@ -216,11 +229,11 @@ const proxy=http.createServer((req,res)=>{
    if(windows.size>=MAX_WINDOWS)return send(429,{error:`${MAX_WINDOWS} company windows are open. Use Exit in one of them first.`});
    failures=0;const token=crypto.randomBytes(24).toString('hex');const session={token,company:key,location,mode,username,port:0};sessions.set(token,session);
    let port;try{port=await openWindow(session);}catch(e){sessions.delete(token);say('Could not open a company window: '+e.message);return send(503,{error:'A window for this company could not be opened. Try again.'});}
-   say(`Signed in to ${key}${location?' / '+location:''} (${username}${mode==='editable'?', editable copy':''}) on port ${port}. ${windows.size} window(s) open.`);
+   say(`Signed in to ${key}${location?' / '+location:''} (${username}${mode==='editable'?', editable copy':''}) on port ${port}. ${windows.size} window(s) open.`);void report('login',username,key,`Signed in${mode==='editable'?'':' to the original workspace'}${location?' · '+location:''}`,mode);
    send(200,{ok:true,url:`http://${hostOf(req)}:${port}/`},{'Set-Cookie':`${SESSION_COOKIE}_${port}=${token}; HttpOnly; SameSite=Strict; Path=/`});});
   return;}
  // The sign-in page asks here whether the typed login ID exists (admin01 or an active HR user); the password box opens only then.
- if(u.pathname==='/__id'){const id=(u.searchParams.get('id')||'').trim().slice(0,40);if(loginHash(id)===LOGIN_ID_HASH){json(res,200,{ok:true});return;}if(!/^[a-zA-Z][a-zA-Z0-9_.-]{2,39}$/.test(id)||id.toLowerCase()==='admin01'){json(res,200,{ok:false});return;}fetch(editableOrigin+'/api/hr-login?username='+encodeURIComponent(id),{headers:{Origin:editableOrigin,'oai-authenticated-user-id':USER.id,'oai-authenticated-user-email':USER.email,'oai-authenticated-user-username':'admin01'},signal:AbortSignal.timeout(8000)}).then(async r=>json(res,200,{ok:r.ok&&(await r.json()).exists===true}),()=>json(res,200,{ok:false}));return;}
+ if(u.pathname==='/__id'){const id=(u.searchParams.get('id')||'').trim().slice(0,40);if(loginHash(id)===LOGIN_ID_HASH){json(res,200,{ok:true});return;}if(!/^[a-zA-Z][a-zA-Z0-9_.-]{2,39}$/.test(id)||id.toLowerCase()==='admin01'){json(res,200,{ok:false});return;}whereExists(id).then(where=>json(res,200,{ok:where.length>0}),()=>json(res,200,{ok:false}));return;}
  // The company list is shown on the sign-in page itself (names only; this program answers this computer only).
  if(u.pathname==='/__locations'){locationsOf(u.searchParams.get('company')||'').then(l=>json(res,200,{locations:l}),()=>json(res,503,{error:'The program is still starting.'}));return;}
  if(u.pathname==='/__companies'){companiesOffered().then(c=>json(res,200,{companies:c}),()=>json(res,503,{error:'The program is still starting.'}));return;}

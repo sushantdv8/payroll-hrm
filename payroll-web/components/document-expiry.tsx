@@ -3,6 +3,8 @@ import {useEffect} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {toast} from 'sonner';
 import {requestJson} from '@/lib/client-api';
+import {hrDirect} from '@/lib/access';
+import {useCanOpen,useIdentity} from '@/components/access-context';
 
 // Employee document expiry reminders: documents (Employee Documents, with an expiry date) that have expired or expire
 // within 30 days. Read from the Documents / Expiry report, so each user only gets reminders for the units and the
@@ -25,7 +27,7 @@ const when=(days:number)=>days<0?`expired ${-days} day${days===-1?'':'s'} ago`:d
 
 // HR Dashboard panel.
 export function DocumentExpiryPanel({dataset}:{dataset:string}){
- const q=useDocumentExpiry(dataset);const rows=q.data||[];const expired=rows.filter(r=>r.days<0).length;
+ const identity=useIdentity();const q=useDocumentExpiry(dataset,!!identity&&hrDirect(identity,'documents'));const rows=q.data||[];const expired=rows.filter(r=>r.days<0).length;
  if(q.error||q.isPending)return null;
  return <div className="hr-dash-panel hr-dash-expiry"><h2>Document expiry reminders<em>{rows.length}</em></h2>
   {rows.length===0?<p className="hr-dash-empty">No document has expired or expires within 30 days.</p>
@@ -35,12 +37,12 @@ export function DocumentExpiryPanel({dataset}:{dataset:string}){
 
 // Notice shown once per browser tab and company when something has expired or is about to.
 export function DocumentExpiryAlert({dataset,enabled,onOpen}:{dataset:string;enabled:boolean;onOpen:(screen:string)=>unknown}){
- const q=useDocumentExpiry(dataset,enabled);
+ const q=useDocumentExpiry(dataset,enabled);const canView=useCanOpen()('hr/dashboard');
  useEffect(()=>{
   const rows=q.data;if(!rows?.length)return;const key='hr-doc-expiry-shown:'+dataset;
   try{if(sessionStorage.getItem(key))return;sessionStorage.setItem(key,'1');}catch{/* storage blocked: the notice may repeat */}
   const expired=rows.filter(r=>r.days<0).length;
-  toast.warning(`Employee documents: ${expired} expired, ${rows.length-expired} expiring within 30 days.`,{duration:12000,action:{label:'View',onClick:()=>{onOpen('hr/dashboard');}}});
- },[q.data,dataset,onOpen]);
+  toast.warning(`Employee documents: ${expired} expired, ${rows.length-expired} expiring within 30 days.`,{duration:12000,action:canView?{label:'View',onClick:()=>{onOpen('hr/dashboard');}}:undefined});
+ },[q.data,dataset,onOpen,canView]);
  return null;
 }

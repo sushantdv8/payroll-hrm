@@ -25,7 +25,7 @@ await pg.exec(fs.readFileSync(path.join(root, 'schema.sql'), 'utf8'));
 const src = new DatabaseSync(d1File, { readOnly: true });
 
 // parents before children (foreign keys)
-const tables = ['employees', 'holidays', 'attendance', 'backup_settings', 'salary_snapshots', 'source_datasets', 'source_employee_links', 'source_packets', 'source_parts', 'master_records', 'hr_records', 'hr_audit', 'hr_settings', 'hr_users'];
+const tables = ['employees', 'holidays', 'attendance', 'backup_settings', 'salary_snapshots', 'source_datasets', 'source_employee_links', 'source_packets', 'source_parts', 'master_records', 'hr_records', 'hr_audit', 'hr_settings', 'hr_users', 'activity_log'];
 if (wipe) for (const t of [...tables].reverse()) await pg.exec(`DELETE FROM ${t}`);
 
 const exists = (t) => src.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(t);
