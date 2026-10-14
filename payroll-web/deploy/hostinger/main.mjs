@@ -32,12 +32,14 @@ process.on('uncaughtException', e => console.error('[payroll] uncaught exception
 
 // ---- settings file (optional) ----
 const settingsFile = path.resolve(env.PAYROLL_ENV_FILE || path.join(env.PAYROLL_DATA_DIR || path.join(os.homedir(), 'payroll-data'), 'app.env'));
+let settingsState = 'read';
 try {
   for (const line of fs.readFileSync(settingsFile, 'utf8').split(/\r?\n/)) {
     const m = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/.exec(line);   // a line that starts with # is not a setting
     if (m && !(m[1] in env)) env[m[1]] = m[2].replace(/^(["'])(.*)\1$/, '$2');
   }
-} catch (e) { if (e.code !== 'ENOENT') console.error(`[payroll] cannot read the settings file ${settingsFile}: ${e.message}`); }
+} catch (e) { settingsState = e.code === 'ENOENT' ? 'not found' : `cannot be read: ${e.message}`; }
+log(`settings file ${settingsFile}: ${settingsState}`);
 
 // ---- places ----
 const dataDir = path.resolve(env.PAYROLL_DATA_DIR || path.join(os.homedir(), 'payroll-data'));
@@ -53,8 +55,8 @@ const {createLayer, readConfig} = await import('../signin-layer/server.mjs');
 let cfg;
 try { cfg = readConfig({...env, UPSTREAM: 'unix:' + appSocket, HOST: '127.0.0.1', PORT: String(env.PORT || 8080), PAYROLL_INTERNAL_KEY: env.PAYROLL_INTERNAL_KEY || crypto.randomBytes(24).toString('hex')}); }
 catch (e) {
-  console.error('[payroll] NOT CONFIGURED: ' + e.message);
-  const msg = 'Payroll Workspace is not configured yet: ' + e.message + ' (set it in the web app\'s environment variables and redeploy).';
+  console.error(`[payroll] NOT CONFIGURED: ${e.message} (settings file ${settingsFile}: ${settingsState})`);
+  const msg = 'Payroll Workspace is not configured yet: ' + e.message + ' (set it in the web app\'s environment variables or in its settings file and restart; the log says which file).';
   http.createServer((req, res) => { res.writeHead(503, {'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store'}); res.end(msg); }).listen(Number(env.PORT || 8080));
   await new Promise(() => {});
 }

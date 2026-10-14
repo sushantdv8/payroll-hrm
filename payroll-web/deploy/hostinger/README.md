@@ -26,6 +26,32 @@ browser --HTTPS--> hosting (CDN, LiteSpeed) --> sign-in layer --unix socket--> t
 
 Until both variables are set the app answers "not configured". Never put the password itself in a variable.
 
+**Settings file.** The same names can be kept in a file of `KEY=VALUE` lines, `<PAYROLL_DATA_DIR>/app.env` (or the file named by `PAYROLL_ENV_FILE`); real environment variables win over it. Keep it private (`chmod 600`; `make-admin-hash.mjs --write-to <file>` creates it that way). The log (`console.log` of the app) says which file was read.
+
+## By hand over SSH (a normal website of the plan, no Web App wizard)
+
+Hostinger's wizard creates the website of the domain as soon as the domain step is accepted; if it is then left, that site cannot be chosen again ("Domain connected to site") and the file-upload step says "Failed to prepare service". The sites are run by LiteSpeed with the same Passenger-style lines that the Web Apps get, so the app can be set up by hand on such a site (done on a subdomain of a Business plan, October 2026):
+
+1. SSH key in hPanel (Advanced > SSH Access), then `ssh -p 65002 <user>@<server>`. Node.js and npm of the hosting: `/opt/alt/alt-nodejs24/root/bin` (add it to `PATH`).
+2. Unpack the code (a ZIP of `payroll-web`, `git archive --format=zip -o payroll-app.zip HEAD:payroll-web`) into `~/domains/<site>/app`, then there: `npm ci` and `RAYON_NUM_THREADS=2 TOKIO_WORKER_THREADS=2 npm run build` (about 15 s; the account may start only a few threads - without the limits the bundler stops with "Resource temporarily unavailable").
+3. `~/domains/<site>/public_html/.htaccess` (the app folder stays outside `public_html`):
+
+```
+PassengerAppRoot /home/<user>/domains/<site>/app
+PassengerAppType node
+PassengerNodejs /opt/alt/alt-nodejs24/root/bin/node
+PassengerStartupFile deploy/hostinger/server.js
+PassengerBaseURI /
+PassengerRestartDir /home/<user>/domains/<site>/app/tmp
+SetEnv LSNODE_CONSOLE_LOG console.log
+SetEnv TOKIO_WORKER_THREADS 2
+SetEnv PAYROLL_DATA_DIR /home/<user>/payroll-data
+```
+
+4. `~/payroll-data/app.env` with `PUBLIC_ORIGIN=https://<site>`; the Super Admin password on the server itself (you type it; only the hash is stored): `ssh -t ... "/opt/alt/alt-nodejs24/root/bin/node ~/domains/<site>/app/deploy/signin-layer/make-admin-hash.mjs --write-to ~/payroll-data/app.env"`.
+5. The data (below) into `~/payroll-data/pg`.
+6. Restart: `touch app/tmp/restart.txt` is slow to act; stop the process instead, LiteSpeed starts it again with the next request: `pkill -TERM -u $USER -f "lsnode:/home/<user>/domains/<site>/app"`. The app's log: `app/console.log` and `app/stderr.log`.
+
 ## The data
 
 The database folder lives outside the folder that every deploy replaces (`~/payroll-data/pg`, `~` = the web app's home). To fill it from the Windows edition:
