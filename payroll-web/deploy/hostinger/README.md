@@ -43,6 +43,7 @@ Only one copy of the app may use the folder: `~/payroll-data/pg.lock` holds the 
 * LiteSpeed's `LSAPI_MAX_PROCESS_TIME` is 120 s per request; the app is recreated by every deploy and may be recycled by the hosting: **everybody is signed out then** (sessions are in memory).
 * PGlite: opening an empty database 3.8 s, 200 point reads 0.14 s, a 1.6 MB answer 8 ms, reopening a 95 MB database 0.2 s; about 500 MB of memory.
 * The client address is `X-Real-IP` (set by the hosting, a browser cannot forge it); the layer uses it for its sign-in limits.
+* The real data (PGlite folder of 1.35 GB: 29 companies / years, about 20,000 employees, 170,000 attendance rows, 7,000 files) was run through the whole stack on a PC with 8 GB of memory (busy, 600 MB free): start 3 s, 270 MB of memory idle and 525 MB after the heaviest reports; one company-year with 1,552 employees: employee list 0.3-0.5 s, monthly attendance 0.7-1.1 s, salary sheets 4-5 s, salary slips 0.3-6 s, personal-file report 0.2-0.8 s. The PGlite folder must be `<PAYROLL_DATA_DIR>/pg` itself (the files `PG_VERSION`, `base/`, ... directly inside); an empty folder there makes a new, empty database.
 * Uploads of 10 / 30 / 110 MB passed (the application needs 25 MB at most).
 
 ## Security notes
