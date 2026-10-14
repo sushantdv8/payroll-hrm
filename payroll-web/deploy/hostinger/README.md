@@ -10,6 +10,7 @@ browser --HTTPS--> hosting (CDN, LiteSpeed) --> sign-in layer --unix socket--> t
 * The application's request handler is taken from vinext's production server and served on a unix socket; its calls to the database (`fetch` to `http://gateway.local`) are routed to the gateway's socket.
 * The sign-in layer (`../signin-layer`) is the only thing the hosting can reach. See its README for what it checks.
 * Why sockets: the hosting wraps `listen()` (the app gets one socket) and does not let processes reach each other over TCP on 127.0.0.1; unix sockets work. This was tested on Hostinger (probe app, October 2026).
+* The wrapper is on `http.Server#listen`: only its first call (the sign-in layer's) is honoured, later ones are ignored without a callback (log line `http.Server.listen() was called more than once, ignore.`). The two private sockets are therefore served by plain `net.createServer()` servers that hand their connections to an `http.Server` (`serveOnSocket` in `main.mjs`).
 
 ## Settings of the web app (hPanel > Web Apps)
 

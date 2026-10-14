@@ -18,6 +18,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
+import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import {Readable} from 'node:stream';
@@ -48,7 +49,13 @@ const tag = crypto.randomBytes(6).toString('hex');
 const runDir = process.platform === 'win32' ? '' : fs.mkdtempSync(path.join(os.tmpdir(), 'pw-'));   // 0700: only this user reaches the sockets
 const socketPath = name => process.platform === 'win32' ? `\\\\.\\pipe\\pw-${tag}-${name}` : path.join(runDir, name + '.sock');
 const gatewaySocket = socketPath('gateway'), appSocket = socketPath('app');
+// The hosting wraps http.Server#listen: only the first call (the sign-in layer's) is honoured, later ones are "ignored" and never call back.
+// So the layer listens the normal way, and the two private sockets are served by plain net servers that hand their connections to an http server.
 const listenOn = (server, where) => new Promise((resolve, reject) => { server.once('error', reject); server.listen(where, () => { server.off('error', reject); resolve(); }); });
+const serveOnSocket = (httpServer, where) => new Promise((resolve, reject) => {
+  const raw = net.createServer(socket => { httpServer.emit('connection', socket); });
+  raw.once('error', reject); raw.listen(where, () => { raw.off('error', reject); resolve(raw); });
+});
 
 // ---- 1. the sign-in layer listens first (it is the hosting's one socket); the rest starts behind it ----
 const {createLayer, readConfig} = await import('../signin-layer/server.mjs');
@@ -87,7 +94,7 @@ try {
   const handle = createGateway({driver, secret});
   const gatewayServer = http.createServer((req, res) => { void handle(req, res); });
   gatewayServer.keepAliveTimeout = 300000; gatewayServer.headersTimeout = 310000;
-  await listenOn(gatewayServer, gatewaySocket);
+  await serveOnSocket(gatewayServer, gatewaySocket);
   env.DB_GATEWAY_URL = 'http://gateway.local'; env.DB_GATEWAY_SECRET = secret;
   const realFetch = globalThis.fetch;
   globalThis.fetch = async function routedFetch(input, init) {
@@ -127,7 +134,7 @@ try {
   if (!appHandler) throw new Error('the application did not register a request handler');
   const appServer = http.createServer((req, res) => appHandler(req, res));
   appServer.keepAliveTimeout = 65000; appServer.headersTimeout = 70000; appServer.requestTimeout = 0;
-  await listenOn(appServer, appSocket);
+  await serveOnSocket(appServer, appSocket);
   log('application is ready');
 
   const stop = () => { releaseLock(); void driver.close().catch(() => {}).finally(() => process.exit(0)); setTimeout(() => process.exit(0), 4000).unref(); };
