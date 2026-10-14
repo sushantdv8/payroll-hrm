@@ -4,6 +4,20 @@ Ready-to-copy configuration for the steps in [`../DEPLOYMENT-GUIDE.md`](../DEPLO
 **Not yet run on your server**: the application, the gateway and the Node.js runner were tested on Windows with PostgreSQL 17.11; these Linux files follow the same
 commands. Do a staging run first (guide, section 4.9).
 
+## Quick path: a plain Ubuntu 22.04 / 24.04 VPS (no Plesk)
+
+```bash
+# as root, DNS of the domain already points to this server
+git clone --depth 1 https://github.com/sushantdv8/payroll-hrm.git /root/payroll-hrm
+DOMAIN=hrm.example.com EMAIL=you@example.com bash /root/payroll-hrm/docs/deploy-kit/install-ubuntu.sh
+node /opt/payroll/app/payroll-web/deploy/signin-layer/make-admin-hash.mjs --write-to /etc/payroll/layer.env   # you type the Super Admin password
+systemctl start payroll-layer
+bash /opt/payroll/app/docs/deploy-kit/restore-data.sh /path/to/backup.dump                                    # optional: load data
+```
+
+`install-ubuntu.sh` does the "Order of work" below (packages, PostgreSQL 17, Node.js 24, user, database, secrets, build, services, nginx + Let's Encrypt, firewall, nightly backup); it keeps existing secrets when run again.
+The sign-in layer (`payroll-web/deploy/signin-layer`) is the only way in: nginx proxies to it (port 8080), the application (3000), gateway (5790) and PostgreSQL (5432) stay on 127.0.0.1.
+
 ## Required runtime and dependencies
 
 | What | Version | Why |
@@ -29,7 +43,7 @@ Ports (all on 127.0.0.1 except 80/443 through Plesk): web application 3000, gate
 5. Gateway: `cd /opt/payroll/app/db-gateway && npm ci --omit=dev`; copy `env/gateway.env.example` to `/etc/payroll/gateway.env` and fill it in; install `systemd/payroll-gateway.service`; start it (guide, 4.4).
 6. Application: `cd /opt/payroll/app/payroll-web && npm ci && npm run build`; copy `env/app.env.example` to `/etc/payroll/app.env` and fill it in (same secret as the gateway); install `systemd/payroll-app.service`; start it (guide, 4.5).
 7. Load the data: `pg_restore -h 127.0.0.1 -U payroll -d payroll --no-owner --clean --if-exists -j 2 <backup>.dump` (always with `--clean --if-exists`; see `RESTORE.txt` of the database package for the row counts to compare), then `ANALYZE;` (guide, 4.8 and 5). Doing this before step 5 is cleanest, but with `--clean --if-exists` the order does not matter.
-8. Sign-in layer and nginx: paste `nginx/plesk-additional-nginx-directives.conf` in Plesk (guide, 4.6 and 4.7; the server version of the sign-in layer is still to be completed, guide section 12).
+8. Sign-in layer and nginx: install `systemd/payroll-layer.service` and `env/layer.env.example` (set the Super Admin password with `make-admin-hash.mjs`, guide 4.6), then paste `nginx/plesk-additional-nginx-directives.conf` in Plesk with `proxy_pass` pointing to the layer, port 8080 (guide 4.7); without Plesk use `nginx/payroll-site.conf`.
 9. Backups: `~payroll/.pgpass`, `chmod +x backup/backup-payroll.sh`, install `backup/crontab.example` for the `payroll` user; run the script once by hand and restore its output into a test database.
 10. Staging checks and reboot test (guide, 4.9).
 
@@ -57,8 +71,10 @@ Take a backup first. To go back: `git checkout <previous commit>`, rebuild, rest
 | File | Purpose |
 |---|---|
 | `ENVIRONMENT-VARIABLES.md` | every variable and configuration file, with rules for secrets |
-| `env/gateway.env.example`, `env/app.env.example` | the two environment files |
-| `systemd/payroll-gateway.service`, `systemd/payroll-app.service` | the two services |
+| `install-ubuntu.sh`, `restore-data.sh` | one-go installation on a plain Ubuntu VPS, and loading a database backup |
+| `env/gateway.env.example`, `env/app.env.example`, `env/layer.env.example` | the three environment files |
+| `systemd/payroll-gateway.service`, `systemd/payroll-app.service`, `systemd/payroll-layer.service` | the three services |
 | `nginx/plesk-additional-nginx-directives.conf` | the proxy block for Plesk |
+| `nginx/payroll-site.conf`, `nginx/payroll-proxy.conf`, `nginx/payroll-ratelimit.conf` | the nginx files for a plain Ubuntu VPS (site, proxy headers, sign-in rate limit) |
 | `postgresql/create-database.sql` | database and user |
 | `backup/backup-payroll.sh`, `backup/crontab.example` | nightly backup with 14 days of retention |

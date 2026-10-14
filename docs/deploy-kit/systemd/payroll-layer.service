@@ -1,0 +1,29 @@
+# /etc/systemd/system/payroll-layer.service
+# Install:  sudo cp payroll-layer.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable payroll-layer
+# It does not start until the Super Admin password is set:  sudo node /opt/payroll/app/payroll-web/deploy/signin-layer/make-admin-hash.mjs --write-to /etc/payroll/layer.env
+# then:     sudo systemctl start payroll-layer ; journalctl -u payroll-layer -f ; curl -s http://127.0.0.1:8080/__ping   (ok)
+# The sign-in layer is the ONLY way to the application: nginx sends every request to port 8080, the application itself listens on 127.0.0.1:3000.
+# Paths assume the code is in /opt/payroll/app and Node.js is /usr/bin/node (install-ubuntu.sh adjusts it to `command -v node`).
+
+[Unit]
+Description=Payroll Workspace sign-in layer
+After=network.target payroll-app.service
+Wants=payroll-app.service
+
+[Service]
+User=payroll
+Group=payroll
+WorkingDirectory=/opt/payroll/app/payroll-web/deploy/signin-layer
+EnvironmentFile=/etc/payroll/layer.env
+ExecStart=/usr/bin/node server.mjs
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictAddressFamilies=AF_INET AF_INET6
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

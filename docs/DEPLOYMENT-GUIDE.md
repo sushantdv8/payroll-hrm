@@ -5,7 +5,8 @@ For hosting the software on a Linux VPS with Plesk, e.g. `hrm.erpkishorexports.c
 **What has and has not been tested.** The application, the PostgreSQL gateway and the Node.js runner were tested on Windows 11
 with PostgreSQL 17.11 and Node.js 24, using a copy of the real company data (see `db-gateway/README.md`, "What was checked").
 The Linux / Plesk steps below follow the same commands but have **not yet been run on your server**: plan a staging run first
-(section 4.9). Two parts are not finished and are listed in section 12 (the sign-in layer for a server, and the biometric link).
+(section 4.9). The sign-in layer for a server exists (`payroll-web/deploy/signin-layer`, section 4.6) and was tested end to end on Windows (browser -> layer -> application on Node -> PostgreSQL); one part is not finished: the biometric link (section 12).
+For a plain Ubuntu VPS without Plesk, `deploy-kit/install-ubuntu.sh` does sections 4.1 - 4.7 in one go (nginx + Let's Encrypt instead of Plesk).
 
 ---------------------------------------------------------------------------------------------------------------------------
 
@@ -166,8 +167,13 @@ curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3000/api/hr-login?user
 ### 4.6 Sign-in layer
 
 The application trusts identity headers that a sign-in layer in front of it adds after a successful login; without them every request is refused.
-**A server version of this layer is still to be completed (section 12).** It must be the only way to reach the app: the app listens on `127.0.0.1` only,
-and the layer must remove any `oai-authenticated-user-*` headers sent by browsers. The headers the Windows edition sends are:
+**The server version of this layer is `payroll-web/deploy/signin-layer/`** (plain Node.js, no packages; `README.md` there): sign-in page (Login ID, password, then company / year / location),
+`admin01` from a scrypt hash in `/etc/payroll/layer.env`, every other login checked by the application, cookie sessions, rate limits, the headers below, sign-ins in the activity log.
+Install the unit `deploy-kit/systemd/payroll-layer.service` and the settings `deploy-kit/env/layer.env.example`, set the Super Admin password with
+`sudo node /opt/payroll/app/payroll-web/deploy/signin-layer/make-admin-hash.mjs --write-to /etc/payroll/layer.env` (you type it; only its hash is stored) and point nginx at the layer's port 8080
+instead of the application's 3000. Any other layer that does the same (for example nginx `auth_request`, Authelia or Cloudflare Access) can be used instead.
+It must be the only way to reach the app: the app listens on `127.0.0.1` only,
+and the layer must remove any `oai-authenticated-user-*` headers sent by browsers. The headers the layer (like the Windows edition) sends are:
 
 | Header | Value |
 |---|---|
@@ -317,9 +323,8 @@ Until this is arranged, attendance can still be imported/entered as before; only
 
 ## 12. Not finished / to be decided
 
-1. **Sign-in layer for the server.** The current one (`installer/launcher.mjs`) was written for the Windows edition (embedded password hashes, one window per login). The server version needs the same
-   login page with Session (year) and Company choice, `admin01` plus the application's users, cookies marked `Secure`, trust in the proxy's headers, and login rate limits. Alternatively your own login system
-   (for example nginx `auth_request`, Authelia or Cloudflare Access) can add the identity headers.
+1. **Sign-in layer for the server: built** (`payroll-web/deploy/signin-layer`, section 4.6) and tested on Windows with the real application on Node and PostgreSQL; not yet run on your server.
+   Its limits: no two-factor authentication or password reset, sessions in memory (a restart signs everybody out), one session per browser, and the Windows edition's read-only "original workspace" is not offered.
 2. **Biometric link** (section 9).
 3. A test run on your actual server (section 4.9) and, if wished, a load test with your number of users.
 4. The Windows data migration for the editable workspace (a second database) if you want to keep both workspaces.
