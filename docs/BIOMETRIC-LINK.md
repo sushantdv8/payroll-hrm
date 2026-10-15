@@ -44,7 +44,10 @@ To read the key again (to type it on the office PC) run `node deploy/signin-laye
 
 1. The Biometric Attendance app must be running there (`Start Biometric.cmd`, or Payroll Workspace / BiometricAttendance_Setup, which start it). Check `http://127.0.0.1:5180` in a browser.
 2. Copy the folder `biometric-web/link` (`server-link.mjs`, `Start Server Link.cmd`) anywhere on that PC and double-click **Start Server Link.cmd**.
-3. The first time it asks for the **server address** (`https://hrm.example.com`, no path; plain `http://` is accepted only for this very PC) and the **key** (pasting it shows nothing). It then asks the server
+3. **Without any typing:** put a file `server-link.json` next to `server-link.mjs` with `{"server": "https://hrm.example.com", "key": "<the key>"}` (a package made for this office, for example a ZIP of the folder:
+   unpack it and double-click `Start Server Link.cmd`). It is used as it is, wins over older saved settings and nothing is saved on top of it; a wrong key inside it is reported ("ask for a new package").
+   It holds the secret: keep the folder private. (`--settings <file>` names another file.) Otherwise the first time it asks for the **server address** (`https://hrm.example.com`, no path; plain `http://`
+   is accepted only for this very PC) and the **key** (paste it with a right-click; it is shown, because a hidden prompt switches the Windows console's paste off). It then asks the server
    once: *The server accepted the key.* - or says why not (wrong key: it asks for the key again, up to three times; no internet / wrong address: the reason). The address and key are saved in
    `%LOCALAPPDATA%\BiometricAttendance\server-link.json` (the profile folder of this Windows user). The window then says *Connected to https://...*; keep it open.
    A key that is saved but wrong stays saved: start again with `Start Server Link.cmd --key <key>` to replace it (double-clicking again would use the saved one).
@@ -114,11 +117,11 @@ All three calls need `Authorization: Bearer <key>` and are served by `payroll-we
 
 ## Tests
 
-* `node --no-warnings --test deploy/signin-layer/link.test.mjs` (from `payroll-web/`, 24 tests): the allowlist is identical in the server and in the Server Link (including the 70-day cap), key checks and the lock
+* `node --no-warnings --test deploy/signin-layer/link.test.mjs` (from `payroll-web/`, 25 tests): the allowlist is identical in the server and in the Server Link (including the 70-day cap), key checks and the lock
   (the right key passes while wrong keys are locked), the round trip with gzip, timeouts and late answers, size limits, one answer at a time per request, per-kind limits, the connection log, the layer integration
   (`/__link` never reaches the application and needs no session; a key of the wrong shape switches the link off), and the Server Link against stand-ins: all four requests, a hostile server (it must not follow
-  redirects of the poll, of the answer or of the local app; huge or forged jobs; forged log lines), the app being down, a wrong key, reconnecting, still being seen while busy with downloads, two copies with one key,
-  the command line and the hidden key prompt.
+  redirects of the poll, of the answer or of the local app; huge or forged jobs; forged log lines), the app being down, a wrong key, reconnecting, still being seen while busy with downloads, two copies with one key, the key check and `--test`,
+  the command line, and a package with its settings inside (it wins over a wrong key saved earlier and saves nothing).
 * An independent review (a second reader that tried to break the relay and the Server Link) found: the Server Link followed redirects, concurrent / oversized answers could stall the one process, a machine user ID
   `__proto__` poisoned the punches view, the lock could shut the office out when an address is shared, the machine list leaked Comm Keys, and smaller points (log forging, no cap on the job size, `--key` parsing,
   no date-range cap, polling stopped when 4 downloads ran) - all fixed and covered by tests.

@@ -7,8 +7,7 @@ import net from 'node:net';
 import zlib from 'node:zlib';
 import {createLink,allowedRequest,relayFetch,LinkError} from './link.mjs';
 import {createLayer,hashPassword,makeLimiter,ipBucket} from './server.mjs';
-import {allowedRequest as agentAllowed,startLink,checkKey,cleanServer,cleanKey,cleanApp,parseArgs,askHidden} from '../../../biometric-web/link/server-link.mjs';
-import {EventEmitter} from 'node:events';
+import {allowedRequest as agentAllowed,startLink,checkKey,cleanServer,cleanKey,cleanApp,parseArgs,loadPreset} from '../../../biometric-web/link/server-link.mjs';
 import {execFile} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -413,15 +412,35 @@ test('the Server Link can ask the server once (reachable? key accepted?) and say
   }finally{fs.rmSync(data,{recursive:true,force:true});}
  }finally{await r.close();}
 });
-test('the command line: a value is the next word whatever it starts with; the key prompt shows nothing and understands backspace and paste',async()=>{
+test('the command line: a value is the next word whatever it starts with',()=>{
  const a=parseArgs(['--server','https://hrm.example.com','--key','--abcDEF','--quiet']);
  assert.equal(a.value('key'),'--abcDEF');assert.equal(a.value('server'),'https://hrm.example.com');assert.equal(a.has('quiet'),true);assert.equal(a.has('status'),false);assert.equal(a.value('data'),undefined);
  assert.throws(()=>parseArgs(['--key']).value('key'),/needs a value/);
  assert.equal(cleanApp('http://127.0.0.1:5180'),'http://127.0.0.1:5180');assert.equal(cleanApp('http://192.168.1.5:5180/'),'http://192.168.1.5:5180');
  for(const bad of ['127.0.0.1:5180','http://127.0.0.1:5180/api','ftp://x','http://u:p@127.0.0.1:5180'])assert.equal(cleanApp(bad),null,bad);
- const out=[];const stdin=Object.assign(new EventEmitter(),{isTTY:true,raw:null,setRawMode(v){this.raw=v;},resume(){},pause(){},setEncoding(){}});
- const p=askHidden('Key: ',stdin,{write:s=>out.push(s)});
- stdin.emit('data','ab');stdin.emit('data','x\u007fc');stdin.emit('data','\r');
- assert.equal(await p,'abc');assert.equal(stdin.raw,false);assert.deepEqual(out,['Key: ','\n'],'nothing but the question and a line break was written');assert.equal(stdin.listenerCount('data'),0);
- const p2=askHidden('Key: ',stdin,{write(){}});stdin.emit('data','  '+KEY+'\r\n');assert.equal(await p2,KEY);
+});
+
+test('a package made for the office needs no typing: server-link.json next to the program is used as it is, wins over older saved settings and saves nothing',async()=>{
+ const r=await rig({pollMs:200});
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'sl-pkg-')),prog=path.join(root,'ServerLink'),data=path.join(root,'data');fs.mkdirSync(prog);fs.mkdirSync(data);
+ const source=path.join(path.dirname(fileURLToPath(import.meta.url)),'..','..','..','biometric-web','link','server-link.mjs');fs.copyFileSync(source,path.join(prog,'server-link.mjs'));
+ const run=args=>new Promise(resolve=>execFile(process.execPath,['--no-warnings',path.join(prog,'server-link.mjs'),'--data',data,...args],{timeout:30000},(err,stdout,stderr)=>resolve({code:err?err.code:0,out:stdout+stderr})));
+ try{
+  // an older, wrong key was saved on this computer by somebody who typed it
+  fs.writeFileSync(path.join(data,'server-link.json'),JSON.stringify({server:r.base,key:'Z9y8X7w6'.repeat(6)}));
+  const before=fs.readFileSync(path.join(data,'server-link.json'),'utf8');
+  assert.equal((await run(['--test'])).code,1,'the saved wrong key is refused');
+  fs.writeFileSync(path.join(prog,'server-link.json'),JSON.stringify({server:r.base,key:KEY}));            // the package: the right settings inside
+  const ok=await run(['--test']);assert.equal(ok.code,0,ok.out);assert.match(ok.out,/^OK: http:\/\/127\.0\.0\.1:\d+ accepts the key/);
+  const st=await run(['--status']);assert.match(st.out,/Key: set \(48 characters\)/);assert.match(st.out,/server-link\.json \(comes with the program\)/);assert.ok(!st.out.includes(KEY),'the key is not shown');
+  assert.equal(fs.readFileSync(path.join(data,'server-link.json'),'utf8'),before,'what was saved earlier is left alone: nothing is saved on top of a package');
+  // a wrong key inside the package is said clearly, and an explicit --key still wins
+  fs.writeFileSync(path.join(prog,'server-link.json'),JSON.stringify({server:r.base,key:'Z9y8X7w6'.repeat(6)}));
+  const bad=await run(['--test']);assert.equal(bad.code,1);assert.match(bad.out,/refused the key/);
+  assert.equal((await run(['--test','--key',KEY])).code,0,'--key given on the command line wins');
+  // --settings points at another file; a missing one is an error; a broken file is ignored (the program then asks, here: not set up)
+  const other=path.join(root,'other.json');fs.writeFileSync(other,JSON.stringify({server:r.base,key:KEY}));assert.equal((await run(['--test','--settings',other])).code,0);
+  assert.equal((await run(['--test','--settings',path.join(root,'nope.json')])).code,2);
+  assert.deepEqual(loadPreset(path.join(root,'nope.json')),{});fs.writeFileSync(other,'not json');assert.deepEqual(loadPreset(other),{});
+ }finally{fs.rmSync(root,{recursive:true,force:true});await r.close();}
 });

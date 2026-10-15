@@ -54,7 +54,7 @@ processes, so port 3000 (and 5790, 5432) must never be opened in the firewall.
 ```bash
 PUBLIC_ORIGIN=https://hrm.example.com ADMIN_PASSWORD_HASH='scrypt$...' PAYROLL_INTERNAL_KEY=... node server.mjs
 node --test deploy/signin-layer/layer.test.mjs        # 25 tests against a stand-in for the application (from payroll-web/)
-node --test deploy/signin-layer/link.test.mjs         # 24 tests of the office link (relay, layer integration, the Server Link of biometric-web/link)
+node --test deploy/signin-layer/link.test.mjs         # 25 tests of the office link (relay, layer integration, the Server Link of biometric-web/link)
 ```
 
 The unit tests start the layer in the same process with a small stand-in for the application that checks what the real one checks (origin, identity headers, internal key), and also misbehaves on purpose

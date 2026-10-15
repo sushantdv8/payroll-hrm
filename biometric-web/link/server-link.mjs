@@ -8,6 +8,7 @@
 //   node --no-warnings server-link.mjs --server https://hrm.example.com --key <key>     save these and start
 //   node --no-warnings server-link.mjs --status             show the saved settings (the key is not shown)
 //   node --no-warnings server-link.mjs --test               ask the server once whether it is reachable and accepts the key (nothing is saved)
+//   A file server-link.json next to this program (or --settings <file>) with {"server": "...", "key": "..."} is used as it is: a package that was made for this office needs no typing.
 //   node --no-warnings server-link.mjs --install-startup    start it by itself when this Windows user signs in (--remove-startup undoes it)
 //   --app http://127.0.0.1:5180  the local Biometric Attendance app (default)      --data <folder>  where server-link.json is kept      --quiet  no output
 //
@@ -167,15 +168,12 @@ export function parseArgs(argv){
  const value=n=>{const i=argv.indexOf('--'+n);if(i<0)return undefined;if(i+1>=argv.length)throw new Error(`--${n} needs a value.`);return argv[i+1];};
  return {has,value};
 }
-const ask=(question,stdin=process.stdin,stdout=process.stdout)=>new Promise(resolve=>{const rl=readline.createInterface({input:stdin,output:stdout});rl.question(question,a=>{rl.close();resolve(a.trim());});});
-// the key is a secret: nothing is shown while it is typed or pasted
-export const askHidden=(question,stdin=process.stdin,stdout=process.stdout)=>new Promise(resolve=>{
- if(!stdin.isTTY||!stdin.setRawMode){void ask(question,stdin,stdout).then(resolve);return;}
- stdout.write(question);stdin.setRawMode(true);stdin.resume();stdin.setEncoding('utf8');let value='';
- const done=v=>{stdin.setRawMode(false);stdin.pause();stdin.removeListener('data',onData);stdout.write('\n');resolve(v);};
- const onData=chunk=>{for(const c of chunk){if(c==='\r'||c==='\n')return done(value.trim());if(c==='\u0003'){stdin.setRawMode(false);stdout.write('\n');process.exit(130);}if(c==='\u007f'||c==='\b')value=value.slice(0,-1);else if(c>=' ')value+=c;}};
- stdin.on('data',onData);
-});
+// A plain line prompt (the console's own line input: right-click / Ctrl+V paste work). The key is NOT hidden on purpose: a "hidden" prompt needs the raw console mode,
+// and in that mode Windows switches the paste of the console off - the first person to set this up could not paste the key.
+export const ask=(question,stdin=process.stdin,stdout=process.stdout)=>new Promise(resolve=>{const rl=readline.createInterface({input:stdin,output:stdout});rl.question(question,a=>{rl.close();resolve(a.trim());});});
+// Settings that come WITH the program (server-link.json next to server-link.mjs, or --settings <file>): made by whoever set the server up, so nothing has to be typed or pasted at the
+// office. They win over what was saved earlier on this computer.
+export function loadPreset(file){try{const j=JSON.parse(fs.readFileSync(file,'utf8'));return j&&typeof j==='object'&&!Array.isArray(j)?j:{};}catch{return {};}}
 
 const STARTUP_NAME='Biometric Server Link.lnk';
 const startupFolder=()=>path.join(process.env.APPDATA||'','Microsoft','Windows','Start Menu','Programs','Startup');
@@ -192,13 +190,19 @@ async function main(){
  const [major,minor]=process.versions.node.split('.').map(Number);
  if(major<20||(major===20&&minor<3)||typeof fetch!=='function'||typeof AbortSignal.any!=='function'){console.error(`This Node.js is too old (${process.versions.node}). Install Node.js 22.13 or newer from https://nodejs.org (LTS), then start Server Link again.`);process.exit(1);}
  const {has,value}=parseArgs(process.argv.slice(2));
- let dataArg,serverArg,keyArg,appArg;
- try{dataArg=value('data');serverArg=value('server');keyArg=value('key');appArg=value('app');}catch(e){console.error(e.message);process.exit(2);}
+ let dataArg,serverArg,keyArg,appArg,settingsArg;
+ try{dataArg=value('data');serverArg=value('server');keyArg=value('key');appArg=value('app');settingsArg=value('settings');}catch(e){console.error(e.message);process.exit(2);}
  const data=path.resolve(dataArg??defaultData());
  if(has('install-startup')){await startupShortcut(true);return;}
  if(has('remove-startup')){await startupShortcut(false);return;}
- const s=loadSettings(data);
- if(has('status')){console.log(s.server?`Server: ${s.server}\nKey: ${s.key?'saved ('+s.key.length+' characters)':'not set'}\nLocal app: ${s.app||'http://127.0.0.1:5180'}\nSettings file: ${fileOf(data)}`:`Not set up yet (settings file: ${fileOf(data)}).`);return;}
+ const saved=loadSettings(data);
+ const presetFile=path.resolve(settingsArg??path.join(here,'server-link.json'));
+ if(settingsArg!==undefined&&!fs.existsSync(presetFile)){console.error(`The settings file ${presetFile} does not exist.`);process.exit(2);}
+ const preset=fs.existsSync(presetFile)&&presetFile!==fileOf(data)?loadPreset(presetFile):{};
+ const usePreset=!!(preset.server||preset.key);                    // the package was made with its settings inside: they win, and nothing is saved on top of them
+ const s={...saved,...preset};
+ const where=usePreset?`${presetFile} (comes with the program)`:fileOf(data);
+ if(has('status')){console.log(s.server?`Server: ${s.server}\nKey: ${s.key?'set ('+String(s.key).length+' characters)':'not set'}\nLocal app: ${s.app||'http://127.0.0.1:5180'}\nSettings file: ${where}`:`Not set up yet (settings file: ${fileOf(data)}).`);return;}
  const quiet=has('quiet');
  let server=serverArg!==undefined?cleanServer(serverArg):cleanServer(s.server),key=keyArg!==undefined?cleanKey(keyArg):cleanKey(s.key);
  const app=appArg!==undefined?cleanApp(appArg):(cleanApp(s.app)||'http://127.0.0.1:5180');
@@ -209,7 +213,7 @@ async function main(){
   if(quiet||!process.stdin.isTTY){console.error('Server Link is not set up yet: run it once without --quiet and enter the server address and the key.');process.exit(2);}
   console.log('Server Link connects the Biometric Attendance app of this computer to your Payroll Workspace server.\n');
   while(!server){server=cleanServer(await ask('Server address (for example https://hrm.example.com): '));if(!server)console.log('That does not look like an address. Use https://... with no path.');}
-  while(!key){key=cleanKey(await askHidden('Link key (the BIOMETRIC_LINK_KEY of the server - paste it here, nothing is shown): '));if(!key)console.log('That is not a link key (32 to 128 letters, digits, - and _).');}
+  while(!key){key=cleanKey(await ask('Link key (the BIOMETRIC_LINK_KEY of the server - paste it here with a right-click, then press Enter): '));if(!key)console.log('That is not a link key (32 to 128 letters, digits, - and _).');}
  }
  // --test: only asks the server whether it accepts the key (nothing is saved, nothing keeps running)
  if(has('test')){
@@ -223,12 +227,13 @@ async function main(){
    const c=await checkKey({server,key});
    console.log(c.message);
    if(c.ok||c.kind!=='key'||attempt>=3)break;                 // accepted; or not a key problem (the link below keeps trying and says what it sees); or enough tries
-   const again=cleanKey(await askHidden('Type or paste the key again (nothing is shown; just Enter goes on with this one): '));
+   if(usePreset&&keyArg===undefined){console.log(`The key inside ${presetFile} is old or wrong. Ask for a new Server Link package (or put the right key into that file).`);break;}
+   const again=cleanKey(await ask('Paste the key again (right-click, then Enter; just Enter goes on with this one): '));
    if(!again)break;
    key=again;
   }
  }
- if(server!==s.server||key!==s.key||(appArg!==undefined&&app!==s.app)){saveSettings(data,{...s,server,key,...(appArg!==undefined?{app}:{})});console.log(`Saved in ${fileOf(data)}`);}
+ if(!usePreset&&(server!==saved.server||key!==saved.key||(appArg!==undefined&&app!==saved.app))){saveSettings(data,{...saved,server,key,...(appArg!==undefined?{app}:{})});console.log(`Saved in ${fileOf(data)}`);}
  const logFile=path.join(data,'server-link.log');
  const log=m=>{const line=`[${stamp()}] ${m}`;if(!quiet)console.log(line);try{fs.mkdirSync(data,{recursive:true});if(fs.existsSync(logFile)&&fs.statSync(logFile).size>1024*1024)fs.renameSync(logFile,logFile+'.old');fs.appendFileSync(logFile,line+'\r\n');}catch{/* the log must never stop the link */}};
  log(`Server Link ${VERSION}: ${server} <-> Biometric Attendance app at ${app}`);
