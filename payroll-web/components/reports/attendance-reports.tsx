@@ -139,7 +139,7 @@ const dailyOption=(value:string,label:string):ReportOption=>({value,label,needs:
  excel:ctx=>[DAILY_HEAD,...dailyRows(ctx,value).map(dailyCells)]});
 // Daily Reports > Multi Punch Report: every punch of each employee and day (Card No. / Name / Date / Description), grouped by department.
 // One line per employee and calendar day that has punches, all the punches of the day as "HH:MM,HH:MM," – the machines' own
-// punches (Biometric Attendance app) when they could be read, else the punches saved in Time Updation. Departments in
+// punches: the original software's own machine table (the imported database; up to the last day it holds) together with the Biometric Attendance app, else the punches saved in Time Updation. Departments in
 // A–Z order, inside a department by Card No.; days without a punch have no line.
 function multiPunchRows(ctx:ReportContext){
  const lastDay=monthDaysOf(ctx.month);const pad=(n:number)=>String(n).padStart(2,'0');const f=ctx.options.fields;
@@ -150,34 +150,36 @@ function multiPunchRows(ctx:ReportContext){
  const sorted=[...ctx.employees].sort((a,b)=>{const x=dep(a).toLowerCase(),y=dep(b).toLowerCase();return x<y?-1:x>y?1:(a.cardNo||a.paycode).localeCompare(b.cardNo||b.paycode,undefined,{numeric:true})||a.name.localeCompare(b.name);});
  const rows:{e:Employee;date:string;text:string}[]=[];
  for(const e of sorted){
-  const raw=ctx.rawPunches?.get(e.id);const days:[number,string[]][]=[];
-  if(ctx.rawPunches)for(const [date,times] of raw||[]){const d=Number(date.slice(8,10));if(date.slice(0,7)===ctx.month&&d>=from&&d<=to)days.push([d,times]);}
-  else for(const d of ctx.attendance.get(e.id)?.days||[]){if(d.day<from||d.day>to)continue;
-   const times=d.punches?.length?d.punches.map(p=>p.time):[d.manualIn||d.machineIn,d.manualOut||d.machineOut].filter(Boolean) as string[];days.push([d.day,times]);}
-  for(const [d,times] of days.sort((a,b)=>a[0]-b[0]))if(times.length)rows.push({e,date:`${pad(d)}-${ctx.month.slice(5,7)}-${ctx.month.slice(0,4)}`,text:times.map(x=>x+',').join('')});}
+  const days=new Map<number,string[]>();
+  for(const [date,times] of ctx.rawPunches?.get(e.id)||[]){const d=Number(date.slice(8,10));if(date.slice(0,7)===ctx.month&&d>=from&&d<=to&&times.length)days.set(d,times);}
+  // What Time Updation saved is printed for the days no machine punch is known for - except the days the original's own machine table covers (up to ctx.rawPunchLast): its report prints only what it recorded.
+  for(const d of ctx.attendance.get(e.id)?.days||[]){if(d.day<from||d.day>to||days.has(d.day)||(ctx.rawPunchLast&&`${ctx.month}-${pad(d.day)}`<=ctx.rawPunchLast))continue;
+   const times=d.punches?.length?d.punches.map(p=>p.time):[d.manualIn||d.machineIn,d.manualOut||d.machineOut].filter(Boolean) as string[];if(times.length)days.set(d.day,times);}
+  for(const [d,times] of [...days].sort((a,b)=>a[0]-b[0]))rows.push({e,date:`${pad(d)}-${ctx.month.slice(5,7)}-${ctx.month.slice(0,4)}`,text:times.map(x=>x+',').join('')});}
  return {rows,from,to};
 }
-// The printed Punch Report: company, address and "Punch Report for the day of … to …" on the first page only, then on every
-// page a boxed Card No. / Name / Date / Description bar carrying "Page n of m", a bold department line before its employees
-// and one ruled line per employee day. Landscape.
+// The printed Punch Report, laid out like the original's (Crystal Reports): an A4 landscape page with the company, address and "Punch Report for the day of … to …" on the first page only,
+// then on every page a boxed Card No. / Name / Date / Description bar carrying "Page n of m", a bold department line before its employees and one ruled line per employee day.
+// 37 rows on the first page and 40 on every other (a department line counts as a row and may end a page, as in the original's printout); the page is placed to the point (reports.css).
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],WEEKDAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-const MP_FIRST=40,MP_NEXT=45;
+const MP_FIRST=37,MP_NEXT=40;
+// The rows of the original's page are 13.9 pt apart (a department line 12.0, the first row of a page a little less); a table keeps whole pixels, so each row gets the pixel height that puts its rule where the original has it.
+function rowHeights(count:number,isDep:(i:number)=>boolean,first:boolean){let sum=0,done=0;return Array.from({length:count},(_,i)=>{sum+=i===0?(first?(isDep(0)?11.3:13.2):13.2):isDep(i)?12:13.9;const to=Math.round(sum*4/3),h=to-done;done=to;return h;});}
 function multiPunchPages(ctx:ReportContext):ReportPage[]{
  const {rows,from,to}=multiPunchRows(ctx);const [y,m]=ctx.month.split('-').map(Number);
  const long=(d:number)=>`${String(d).padStart(2,'0')}/${MONTHS[m-1]}/${y} ${WEEKDAYS[new Date(Date.UTC(y,m-1,d)).getUTCDay()]}`;
  type Line={dep:string}|{card:string;name:string;date:string;text:string};const lines:Line[]=[];let last:string|null=null;
  for(const r of rows){const dep=r.e.department||'(no department)';if(dep!==last){last=dep;lines.push({dep});}lines.push({card:r.e.cardNo||r.e.paycode,name:r.e.name,date:r.date,text:r.text});}
- // A department heading is never the last line of a page (it moves to the next page with its employees).
  const parts:Line[][]=[];let at=0;
- do{const size=parts.length?MP_NEXT:MP_FIRST;let end=Math.min(lines.length,at+size);if(end<lines.length&&end-1>at&&'dep' in lines[end-1])end--;parts.push(lines.slice(at,end));at=end;}while(at<lines.length);
+ do{const size=parts.length?MP_NEXT:MP_FIRST;parts.push(lines.slice(at,at+size));at+=size;}while(at<lines.length);
  // Group tree: the departments that start on the page; Find also looks through the card numbers and names printed on it.
- return parts.map((part,p)=>{const deps=part.flatMap(l=>'dep' in l?[l.dep]:[]);return {key:'mp-'+p,orientation:'landscape' as const,trees:deps,find:part.flatMap(l=>'dep' in l?[]:[`${l.card} ${l.name}`]).join(' | '),node:<div className="mp">
-  {p===0&&<div className="mp-title"><b className="mp-co">{ctx.company.name}</b>{ctx.company.address&&<b className="mp-adr">{ctx.company.address}</b>}<b className="mp-for">Punch Report for the day of {long(from)} to {long(to)}</b></div>}
-  <table className="mp-table"><colgroup><col style={{width:'6.5%'}}/><col style={{width:'18%'}}/><col style={{width:'9%'}}/><col/></colgroup>
-   <thead><tr><th>Card No.</th><th>Name</th><th>Date</th><th className="mp-desc"><span>Description</span><span className="mp-page">Page {p+1} of {parts.length}</span></th></tr></thead>
-   <tbody>{part.map((l,i)=>'dep' in l?<tr key={i}><td/><td className="mp-dep">{l.dep}</td><td/><td/></tr>:<tr key={i}><td>{l.card}</td><td>{l.name}</td><td>{l.date}</td><td className="mp-text">{l.text}</td></tr>)}</tbody></table></div>};});
-}
-export const dailyConfig:ReportConfig={quick:true,period:'date',filters:[...ALL_FILTERS],sex:true,withLeft:true,fields:[{key:'mpFrom',label:'Punch From',kind:'date',place:'left',default:''},{key:'mpTo',label:'Punch To',kind:'date',place:'left',default:''}],options:[dailyOption('all','Daily Attendance'),dailyOption('present','Present Report'),dailyOption('absent','Absent Report'),dailyOption('late','Late Arrival Report'),{value:'multipunch',label:'Multi Punch Report',needs:['attendance','rawpunches'],note:'Prints every punch of each day exactly as the machines recorded it, for the month of the selected Date (read from the Biometric Attendance app; if it is not running, the punches saved in Time Updation are printed). Leave Punch From / Punch To blank for the whole month, or set them to print only those days.',build:multiPunchPages,excel:ctx=>[['Card No.','Name','Date','Description'],...multiPunchRows(ctx).rows.map(r=>[r.e.cardNo||r.e.paycode,r.e.name,r.date,r.text])]}]};
+ return parts.map((part,p)=>{const deps=part.flatMap(l=>'dep' in l?[l.dep]:[]);const heights=rowHeights(part.length,i=>'dep' in part[i],p===0);return {key:'mp-'+p,orientation:'landscape' as const,trees:deps,find:part.flatMap(l=>'dep' in l?[]:[`${l.card} ${l.name}`]).join(' | '),node:<div className="mp">
+  {p===0&&<><b className="mp-co">{ctx.company.name}</b>{ctx.company.address&&<b className="mp-adr">{ctx.company.address}</b>}<b className="mp-for">Punch Report for the day of {long(from)} to {long(to)}</b></>}
+  <div className={'mp-box'+(p===0?' first':'')}>
+   <div className="mp-head"><span style={{left:'2pt'}}>Card No.</span><span style={{left:'52.2pt'}}>Name</span><span style={{left:'193.9pt'}}>Date</span><span style={{left:'263.8pt'}}>Description</span><span className="mp-page" style={{left:'430.1pt'}}>Page {p+1} of {parts.length}</span></div>
+   <table className="mp-table"><colgroup><col style={{width:'43.8pt'}}/><col style={{width:'137.3pt'}}/><col style={{width:'63.1pt'}}/><col/></colgroup>
+    <tbody>{part.map((l,i)=>'dep' in l?<tr key={i} className="mp-deprow" style={{height:heights[i]+'px'}}><td/><td className="mp-dep">{l.dep}</td><td/><td/></tr>:<tr key={i} style={{height:heights[i]+'px'}}><td>{l.card}</td><td>{l.name}</td><td>{l.date}</td><td className="mp-text">{l.text}</td></tr>)}</tbody></table></div></div>};});
+}export const dailyConfig:ReportConfig={quick:true,period:'date',filters:[...ALL_FILTERS],sex:true,withLeft:true,fields:[{key:'mpFrom',label:'Punch From',kind:'date',place:'left',default:''},{key:'mpTo',label:'Punch To',kind:'date',place:'left',default:''}],options:[dailyOption('all','Daily Attendance'),dailyOption('present','Present Report'),dailyOption('absent','Absent Report'),dailyOption('late','Late Arrival Report'),{value:'multipunch',label:'Multi Punch Report',needs:['attendance','rawpunches'],note:'Prints every punch of each day exactly as the machines recorded it, for the month of the selected Date (from the original software\'s machine data up to 24 Sep 2026 and from the Biometric Attendance app after that; if that app is not running, the punches saved in Time Updation are printed for the later days). Leave Punch From / Punch To blank for the whole month, or set them to print only those days.',build:multiPunchPages,excel:ctx=>[['Card No.','Name','Date','Description'],...multiPunchRows(ctx).rows.map(r=>[r.e.cardNo||r.e.paycode,r.e.name,r.date,r.text])]}]};
 
 // Time Attendence > Periodically Reports
 type PeriodRow={e:Employee;c:Record<string,number>;late:number;ot:number;work:number};

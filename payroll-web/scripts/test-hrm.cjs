@@ -95,4 +95,16 @@ test("Oct-2026 of one employee comes out as the original's Attendance Register p
  assert.equal(out[24].first+'-'+out[24].second,'WO*-WO*');assert.equal(out[17].first,'WO');assert.equal(out[15].first+'-'+out[15].second,'A-A');
  const f=monthFigures(out);assert.equal(f.worked,10.5);assert.equal(f.weeklyOff,3);assert.equal(f.payable,11.5);assert.equal(f.work,91*60+32);assert.equal(f.late,17*60);
 });
+// ---- The original's machine table (tbmachine of its shared database "osps") regrouped by month for the Multi Punch Report (lib/raw-punch-rows.ts).
+const {collectRows,finishMonth}=require(lib+'/raw-punch-rows.ts');
+test('Machine rows are grouped by month, card and day: every punch of the day, sorted, each minute once',()=>{
+ const at={card:0,date:1,time:2};const acc=new Map();
+ const row=(card,date,time)=>[card,date,time];
+ // rows of two parts, out of date order, a minute recorded twice, a one-digit hour, a time only in the date column, rows that cannot be used
+ collectRows(acc,[row('20014','2026-08-03T13:44:00.0000000','13:44'),row('20014','2026-08-03T10:45:00.0000000','10:45'),row('20014','2026-08-03T14:01:00.0000000','14:01'),row('20014','2026-08-04T09:05:00.0000000','9:05'),row(' 20014 ','2026-08-03T10:45:00.0000000','10:45')],at);
+ collectRows(acc,[row('20014','2026-08-03T21:15:00.0000000','21:15'),row('20014','2026-08-03T21:14:00.0000000','21:14'),row('21438','2026-09-01T19:51:00.0000000',''),row('','2026-08-03T10:00:00.0000000','10:00'),row('20014','not a date','10:00'),row('20014','2026-08-05T00:00:00.0000000','xx')],at);
+ assert.deepEqual([...acc.keys()].sort(),['2026-08','2026-09']);
+ assert.deepEqual(finishMonth(acc.get('2026-08')),{'20014':{'03':'10:45,13:44,14:01,21:14,21:15','04':'09:05'}});
+ assert.deepEqual(finishMonth(acc.get('2026-09')),{'21438':{'01':'19:51'}});
+});
 console.log(`${count} HRM calculation and permission tests passed.`);

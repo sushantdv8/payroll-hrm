@@ -11,6 +11,8 @@ export async function ownerId(){const user=await getChatGPTUser();if(!user)throw
 // PostgreSQL mode: when DB_GATEWAY_URL and DB_GATEWAY_SECRET are set, records and files go to PostgreSQL through the db-gateway; otherwise Cloudflare D1 / R2 as before.
 let pgDb:D1Database|undefined,pgObjects:R2Bucket|undefined;
 function gateway(){return env.DB_GATEWAY_URL&&env.DB_GATEWAY_SECRET?{url:env.DB_GATEWAY_URL.replace(/\/+$/,''),secret:env.DB_GATEWAY_SECRET}:null;}
+// True on a server that keeps its records in PostgreSQL behind the gateway (Hostinger / VPS); false in the Windows program (D1 / R2).
+export function pgStore(){return !!gateway();}
 export function db(){const gw=gateway();if(gw)return pgDb??=pgDatabase(gw);if(!env.DB)throw new RequestError('Records are temporarily unavailable. Please try again.',503);return env.DB;}
 export function bucket(){const gw=gateway();if(gw)return pgObjects??=pgBucket(gw);if(!env.BUCKET)throw new RequestError('Image storage is temporarily unavailable.',503);return env.BUCKET;}
 export function checkOrigin(request:Request){const origin=request.headers.get('origin');if(!origin||origin!==new URL(request.url).origin)throw new RequestError('This request could not be verified. Refresh the page and try again.',403);}

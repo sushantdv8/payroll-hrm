@@ -18,8 +18,8 @@ import './reports.css';
 
 export type FilterKey='company'|'subCompany'|'location'|'dhead'|'department'|'designation'|'category'|'salaryGrade'|'leaveGrade'|'shift';
 export type Lists=Record<string,{code:string;name:string;values:MasterRow['values']}[]>;
-// rawPunches (option need 'rawpunches'): the machines' own punches per employee and calendar day, read from the Biometric Attendance app; rawPunchNote says why they could not be read.
-export type ReportContext={dataset:string;company:{name:string;address:string;values:MasterRow['values']};month:string;dayFrom:number;dayTo:number;from:string;to:string;date:string;printDate:string;employees:Employee[];extras:Record<string,Extra>;attendance:Map<string,AttendanceMonth>;salaries:Map<string,SalarySnapshot>;period:AttendanceMonth[];rows:MasterRow[];lists:Lists;rawPunches?:Map<string,Map<string,string[]>>;rawPunchNote?:string;options:{groupByDept:boolean;otExtraSpace:boolean;salaryWithOt:boolean;advValue:string;addressPrint:string;choice:string;fields:Record<string,string>}};
+// rawPunches (option need 'rawpunches'): the machines' own punches per employee and calendar day - the original software's machine table (up to rawPunchLast, the last day it has a punch of) together with the Biometric Attendance app; rawPunchNote says why there are none.
+export type ReportContext={dataset:string;company:{name:string;address:string;values:MasterRow['values']};month:string;dayFrom:number;dayTo:number;from:string;to:string;date:string;printDate:string;employees:Employee[];extras:Record<string,Extra>;attendance:Map<string,AttendanceMonth>;salaries:Map<string,SalarySnapshot>;period:AttendanceMonth[];rows:MasterRow[];lists:Lists;rawPunches?:Map<string,Map<string,string[]>>;rawPunchLast?:string;rawPunchNote?:string;options:{groupByDept:boolean;otExtraSpace:boolean;salaryWithOt:boolean;advValue:string;addressPrint:string;choice:string;fields:Record<string,string>}};
 // Extra controls of a report screen (Bank Name, Cheque No., Weekly / Fortnighty …); their values reach the report as ctx.options.fields[key].
 // place: 'left' under the month / filters, 'middle' beside the Reports Selection. options may be built from the master lists.
 export type ReportField={key:string;label:string;kind:'text'|'number'|'date'|'select'|'check'|'radio';place?:'left'|'middle';default?:string;options?:{value:string;label:string}[]|((lists:Lists)=>{value:string;label:string}[])};
@@ -77,7 +77,7 @@ export function ReportForm({dataset,employees,title,config,companyName,onClose}:
  const register=useQuery({queryKey:['register',dataset,month],queryFn:({signal})=>requestJson<{attendance:AttendanceMonth[];available:boolean}>('/api/register?'+new URLSearchParams({dataset,month}),{signal}),enabled:useRegister,refetchOnWindowFocus:false,staleTime:60000});
  const registerIds=useMemo(()=>useRegister?new Set((register.data?.attendance||[]).map(a=>a.employeeId)):null,[useRegister,register.data]);
  const [allChecked,setAllChecked]=useState(true);const [exceptions,setExceptions]=useState<Set<string>>(new Set());const [search,setSearch]=useState('');
- const [pages,setPages]=useState<ReportPage[]>([]);const [ctx,setCtx]=useState<ReportContext|null>(null);const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [limit,setLimit]=useState(200);
+ const [pages,setPages]=useState<ReportPage[]>([]);const [ctx,setCtx]=useState<ReportContext|null>(null);const [busy,setBusy]=useState(false);const [wait,setWait]=useState('');const [error,setError]=useState('');const [limit,setLimit]=useState(200);
  const selectedOption=config.options.find(o=>o.value===option)||config.options[0];
  const base=useMemo(()=>{
   let list=employees.filter(e=>{if(registerIds&&!registerIds.has(e.id))return false;const x=extras[String(e.sourceKey||e.id)];
@@ -115,24 +115,32 @@ export function ReportForm({dataset,employees,title,config,companyName,onClose}:
    if(needs.has('period')){const months:string[]=[];for(let d=new Date(rangeFrom.slice(0,7)+'-01T00:00:00Z');d.toISOString().slice(0,7)<=rangeTo.slice(0,7)&&months.length<15;d.setUTCMonth(d.getUTCMonth()+1))months.push(d.toISOString().slice(0,7));
     const all=await Promise.all(months.map(m=>fetch<{attendance:AttendanceMonth[]}>(['report','attendance',dataset,m],'/api/records?'+new URLSearchParams({month:m,dataset,punches:'1'}))));period=all.flatMap(a=>a.attendance);}
    // Multi Punch Report: the punches as the machines recorded them (the days Punch From / Punch To ask for, else the whole month).
-   let rawPunches:ReportContext['rawPunches'],rawPunchNote='';
+   let rawPunches:ReportContext['rawPunches'],rawPunchLast:string|undefined,rawPunchNote='';
    if(needs.has('rawpunches')){const inMonth=(v:string|undefined)=>v&&v.slice(0,7)===monthOf?v:'';const monthLast=new Date(Date.UTC(Number(monthOf.slice(0,4)),Number(monthOf.slice(5,7)),0)).getUTCDate();
     const rf=inMonth(fieldValues.mpFrom)||`${monthOf}-01`,rt=inMonth(fieldValues.mpTo)||`${monthOf}-${pad2(monthLast)}`;
-    if(rf<=rt)try{const [bioSettings,bio]=await Promise.all([requestJson<BioSettings>('/api/biometric?'+new URLSearchParams({dataset,view:'settings'})),requestJson<BioPunches>('/api/biometric?'+new URLSearchParams({dataset,view:'punches',from:rf,to:rt}))]);const found=rawPunchDays(employees,bioSettings.map,bio,rf,rt);
-     // The app is running but holds no punch of these days for this company's employees (machines not downloaded yet, other machines ticked, an old year): use what Time Updation has.
-     if([...found.values()].some(days=>days.size))rawPunches=found;else rawPunchNote='the Biometric Attendance app has no punches for these days yet – download the machines in Biometric Machine Setup';}
-    catch(e){rawPunchNote=(e as Error).message;}}
+    // Every punch of a day from the original software's own machine table (the imported database, up to the last day it holds) and from the Biometric Attendance app (what is newer), each minute once.
+    const merged:NonNullable<ReportContext['rawPunches']>=new Map();
+    const add=(id:string,date:string,times:string[])=>{let days=merged.get(id);if(!days)merged.set(id,days=new Map());days.set(date,[...new Set([...(days.get(date)||[]),...times])].sort());};
+    // A server reads the original's machine table once, which takes about a minute: it answers `pending` meanwhile and the screen asks again.
+    const archive=(async()=>{for(let i=0;i<150;i++){const r=await requestJson<{available:boolean;pending?:boolean;last:string;punches:Record<string,Record<string,string[]>>}>('/api/raw-punches?'+new URLSearchParams({dataset,month:monthOf}));if(!r.pending)return r;setWait('Reading the original software\'s machine punches for the first time – this takes about a minute …');await new Promise(done=>setTimeout(done,4000));}throw new Error('the original software\'s machine punches are still being prepared');})();
+    const live=rf<=rt?Promise.all([requestJson<BioSettings>('/api/biometric?'+new URLSearchParams({dataset,view:'settings'})),requestJson<BioPunches>('/api/biometric?'+new URLSearchParams({dataset,view:'punches',from:rf,to:rt}))]):Promise.resolve(null);
+    const [fromOriginal,fromApp]=await Promise.allSettled([archive,live]);
+    if(fromOriginal.status==='fulfilled'&&fromOriginal.value.available){rawPunchLast=fromOriginal.value.last;for(const [id,days] of Object.entries(fromOriginal.value.punches))for(const [date,times] of Object.entries(days))add(id,date,times);}
+    if(fromApp.status==='fulfilled'&&fromApp.value)for(const [id,days] of rawPunchDays(employees,fromApp.value[0].map,fromApp.value[1],rf,rt))for(const [date,times] of days)add(id,date,times);
+    if(merged.size)rawPunches=merged;
+    // Nothing from either: say why (the first reading of the original's machine table takes about a minute and may run into the server's time limit - the next try is quick).
+    else rawPunchNote=fromApp.status==='rejected'?(fromApp.reason as Error).message:fromOriginal.status==='rejected'?'the original software\'s machine punches are being prepared for the first time, try again in a minute':'there is no punch of these days yet – download the machines in Biometric Machine Setup';}
    const cmp=lists.tbcmp?.[0];const loc=(filters.location||[]).length===1?lists.tblocation?.find(l=>l.code===filters.location![0]):undefined;
    const address=addressPrint==='none'?'':addressPrint==='location'&&loc?trimCell(loc.values.loc_add1):[trimCell(cmp?.values.cmp_add1),trimCell(cmp?.values.cmp_add2)].filter(Boolean).join(', ');
    const context:ReportContext={dataset,company:{name:trimCell(cmp?.values.cmp_name)||companyName,address,values:cmp?.values||{}},month:monthOf,dayFrom,dayTo,from:rangeFrom,to:rangeTo,date:day,printDate:printDateShow&&!config.noPrintDate?printDate:'',employees:chosen,extras,
-    attendance:new Map((att?.attendance||[]).map(a=>[a.employeeId,a])),salaries:new Map((sal?.salaries||[]).map(s=>[s.employeeId,s])),period,rows:rows?.rows||[],lists,rawPunches,rawPunchNote,options:{groupByDept,otExtraSpace:otExtra,salaryWithOt,advValue:adv,addressPrint,choice,fields:fieldValues}};return context;};
+    attendance:new Map((att?.attendance||[]).map(a=>[a.employeeId,a])),salaries:new Map((sal?.salaries||[]).map(s=>[s.employeeId,s])),period,rows:rows?.rows||[],lists,rawPunches,rawPunchLast,rawPunchNote,options:{groupByDept,otExtraSpace:otExtra,salaryWithOt,advValue:adv,addressPrint,choice,fields:fieldValues}};return context;};
    const built:{o:ReportOption;context:ReportContext}[]=[];for(const o of opts)built.push({o,context:await run(o)});
    if(opt.action){await opt.action(built[0].context);return;}
    for(const {o,context} of built)if(o.needs?.includes('rawpunches')&&context.rawPunchNote)toast.warning(`The machine punches could not be read (${context.rawPunchNote}) – the punches saved in Time Updation are printed instead.`);
    // Personal File forms: every page knows its document (file) and its employee; the pages go employee by employee, each employee's documents together.
    const made=built.flatMap(({o,context})=>o.build(context).map(p=>{const q=built.length>1?{...p,key:o.value+':'+p.key}:p;return config.multi?{...q,file:o.label}:q;}));
    setCtx(built[0].context);setPages(config.multi?orderByOwner(made):made);setOption(opt.value);if(dateOverride)setDate(dateOverride);if(tab==='sel')setGen(g=>g+1);setTab('rep');
-  }catch(e){setError((e as Error).message);}finally{setBusy(false);}
+  }catch(e){setError((e as Error).message);}finally{setBusy(false);setWait('');}
  }
  async function excel(){if(!ctx||!selectedOption.excel)return;await exportExcel(`${title.replace(/[^A-Za-z0-9]+/g,'_')}_${ctx.month}.xlsx`,[{name:(selectedOption.sheetName||selectedOption.label).slice(0,31),rows:selectedOption.excel(ctx)}]);toast.success('Excel file created');}
  const monthDaysCount=new Date(Date.UTC(Number(month.slice(0,4)),Number(month.slice(5,7)),0)).getUTCDate();
@@ -168,6 +176,7 @@ export function ReportForm({dataset,employees,title,config,companyName,onClose}:
      <fieldset className="rpt-options" style={{columnCount:config.columns||1}}><legend>Reports Selection</legend>{config.multi&&<div style={{columnSpan:'all',display:'flex',alignItems:'center',gap:8,marginBottom:8}}><button type="button" style={{width:'auto',padding:'3px 10px',border:'1px solid #9aa9b8',borderRadius:4,background:'#f4f7fa',fontSize:13}} onClick={()=>{const all=config.options.filter(o=>!o.hidden).map(o=>o.value);setPicked(all);setOption(all[0]);}}>Select all</button><button type="button" style={{width:'auto',padding:'3px 10px',border:'1px solid #9aa9b8',borderRadius:4,background:'#f4f7fa',fontSize:13}} onClick={()=>setPicked([])}>Clear</button><span className="subtle">{picked.length} selected</span></div>}{config.options.filter(o=>!o.hidden).map(o=><label key={o.value}>{config.multi?<input type="checkbox" checked={picked.includes(o.value)} onChange={e=>{const next=e.target.checked?config.options.map(x=>x.value).filter(v=>v===o.value||picked.includes(v)):picked.filter(v=>v!==o.value);setPicked(next);if(next[0])setOption(next[0]);}}/>:<input type="radio" name={'opt'+title} checked={option===o.value} onChange={()=>setOption(o.value)}/>}{o.label}{o.value==='ot'&&<span className="rpt-inline"><input type="checkbox" checked={salaryWithOt} onChange={e=>setSalaryWithOt(e.target.checked)}/>Salary</span>}{o.value==='advance'&&config.advSheet&&<input className="rpt-small" aria-label="Advance sheet value" value={adv} onChange={e=>setAdv(e.target.value)}/>}</label>)}</fieldset>
      {config.choices&&<label className="rpt-row"><b>{config.choices.label}</b><select value={choice} onChange={e=>setChoice(e.target.value)}>{config.choices.values.map(v=><option key={v.value} value={v.value}>{v.label}</option>)}</select></label>}
      {middleFields.length>0&&<div className="rpt-middle-fields">{middleFields.map(fieldControl)}</div>}
+     {busy&&wait&&<p className="rpt-note">{wait}</p>}
      <div className="rpt-buttons"><button type="button" className="rpt-generate" disabled={busy||extrasQuery.isPending||listsPending} onClick={()=>start()}>{busy?'Please Wait…':'Generate'}</button><button type="button" className="rpt-close" onClick={onClose}>Close</button>
       {config.extraButtons?.map(b=><button key={b.option} type="button" className="rpt-big" disabled={busy||extrasQuery.isPending||listsPending} onClick={()=>start(b.option)}>{b.label}</button>)}</div>
     </div>
