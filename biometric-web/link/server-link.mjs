@@ -188,6 +188,9 @@ function startupShortcut(on){
 }
 
 async function main(){
+ // an old Node would fail later with a message nobody can read: say it now (AbortSignal.any needs Node 20.3; the documented minimum is 22.13)
+ const [major,minor]=process.versions.node.split('.').map(Number);
+ if(major<20||(major===20&&minor<3)||typeof fetch!=='function'||typeof AbortSignal.any!=='function'){console.error(`This Node.js is too old (${process.versions.node}). Install Node.js 22.13 or newer from https://nodejs.org (LTS), then start Server Link again.`);process.exit(1);}
  const {has,value}=parseArgs(process.argv.slice(2));
  let dataArg,serverArg,keyArg,appArg;
  try{dataArg=value('data');serverArg=value('server');keyArg=value('key');appArg=value('app');}catch(e){console.error(e.message);process.exit(2);}
