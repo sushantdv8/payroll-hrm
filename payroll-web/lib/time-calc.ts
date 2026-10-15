@@ -1,4 +1,4 @@
-import {analysePunches,type Punch} from './multi-punch';
+import {analysePunches,lenientPunches,clockMinute,type Punch} from './multi-punch';
 import {monthDays,type AttendanceDay,type AttendanceMonth} from './payroll';
 import {roundOtMinutes} from './salary-engine';
 
@@ -6,19 +6,32 @@ import {roundOtMinutes} from './salary-engine';
 // the same rules give within 0.5% of these rates for Jul-2026):
 //  work hours  out − in − the part of the shift's lunch break inside the punches − its tea breaks − the day's break
 //              deduction (lunch sits in the middle of the shift: GN 09:00–18:00, 60 min → 13:00–14:00)   5983/5987 days
+//  punches     an even number of punches is paired in, out, in, out … and the breaks between the pairs are not worked (48 of 48 days of the raw
+//              machine punches of 2026-09-23, the one day of them kept in the original's archive); an odd number (a missing punch) is taken as one
+//              stretch from the first to the last punch (4 of 4: lib/multi-punch.ts lenientPunches) and stays reported as incomplete; every punch counts,
+//              also two a minute apart (lib/biometric.ts). 'fixed' breaks: the lunch is taken off as far as the pairs worked it, plus a tea break
+//              on each side of it that the day reaches (shift GN2: lunch 30 + 2 × tea 15)
 //  late        in − shift start, when more than the grace minutes (GN: 15) and less than half-day − grace   5954/5987 days
-//  marks       both punches: time inside them (before the break deduction) ≥ full-day minutes → P/P (A/P when the
-//              start was half-day minutes late), ≥ half-day minutes → each half the punches reach into, otherwise
-//              A/A (5896/5987 days); one punch only → MS/MS (207/207); no punch → A/A, weekly off WO, holiday HD,
-//              before joining NJ (45476/45514 days)
+//  marks       both punches: the time inside the SHIFT WINDOW (lunch included) ≥ full-day minutes → P/P, ≥ half-day minutes →
+//              one half only: the first when the person came at least "Before Punch" minutes (GN 120) before the lunch
+//              starts, else the second; less → A/A (44,530 of 44,663 days = 99.7%, all of the rest are punches outside the
+//              window; the earlier rule - net time with the lunch taken off - gave 98.6%); one punch only → MS/MS (207/207);
+//              no punch → A/A, weekly off WO, holiday HD, before joining NJ (45476/45514 days)
+//  late        in − shift start, when more than the grace minutes and less than half-day − grace, on every working day with
+//              an in punch whatever its marks - also with the out punch missing (100% of 90,000 days; weekly offs and holidays: none)
+//  paid days   (monthFigures) when working hours are recorded: total hours ÷ 8 in whole days plus what is left over rounded to the half day
+//              (from 2:46 hours half a day, from 5:39 a whole day); weekly offs and holidays are not added (14,041 of 14,045 employee-months
+//              of the year with hours; the four others are months of 3 to 8 days worked). The original's months with hours hold no leave day (and
+//              it has no on-duty mark), so the paid leave of the month and the on-duty days without hours are added on top, as they always were
+//              here; without hours: the paid marks
 //  weekly off  daily-wage employees (salary mode 1, 2) get WO* (unpaid); monthly staff get WO when present at least
 //              3 of the 6 working days before it (the days after it at the start of a month), otherwise WO*
 //  OT          only for employees with OT allowed: minutes after shift end, rounded by the shift's OT slabs
 //              (Shift Ot Setup, day type 0); work on a weekly off / holiday uses the day type 1 slabs
 export type Mark=AttendanceDay['first'];
 export type Band={min:number;max:number;paid:number};
-export type ShiftRule={code:string;name:string;start:number;end:number;lunch:number;tea:number;grace:number;halfDay:number;fullDay:number;otBands:Band[];offBands:Band[];breakPolicy?:'actual'|'fixed';earlyGrace?:number;requiredMinutes?:number};
-export const defaultShift:ShiftRule={code:'1',name:'GN',start:540,end:1080,lunch:60,tea:0,grace:15,halfDay:180,fullDay:360,otBands:[],offBands:[]};
+export type ShiftRule={code:string;name:string;start:number;end:number;lunch:number;tea:number;grace:number;halfDay:number;fullDay:number;otBands:Band[];offBands:Band[];breakPolicy?:'actual'|'fixed';earlyGrace?:number;requiredMinutes?:number;halfPresent?:number};
+export const defaultShift:ShiftRule={code:'1',name:'GN',start:540,end:1080,lunch:60,tea:0,grace:15,halfDay:180,fullDay:360,otBands:[],offBands:[],halfPresent:120};
 type Row={values:Record<string,string|null>};
 
 export function toMin(value:string|null|undefined){const m=/^(\d{1,3}):([0-5]\d)$/.exec((value||'').trim());return m?Number(m[1])*60+Number(m[2]):null;}
@@ -30,8 +43,21 @@ const cell=(r:Row,c:string)=>(r.values[c]??'').trim();
 export function shiftRulesFrom(shifts:Row[],settings:Row[]):ShiftRule[]{
  return shifts.map(r=>{const code=cell(r,'sft_code');const n=(c:string,d:number)=>{const v=Number(cell(r,c));return cell(r,c)!==''&&Number.isFinite(v)&&v>=0?v:d;};
   const bands=(type:string)=>settings.filter(s=>cell(s,'sft_code')===code&&(cell(s,'day_type')||'0')===type).map(s=>({min:Number(cell(s,'mintime'))||0,max:Number(cell(s,'maxtime'))||0,paid:Number(cell(s,'ret_time'))||0})).sort((a,b)=>a.min-b.min);
-  return {code,name:cell(r,'sft_name')||code,start:toMin(cell(r,'sft_bg'))??defaultShift.start,end:toMin(cell(r,'sft_en'))??defaultShift.end,lunch:Number(cell(r,'sft_lunch'))||0,tea:Number(cell(r,'sft_tea'))||0,grace:n('sft_lateg',15),halfDay:n('hf_day',180)||180,fullDay:n('fl_day',360)||360,earlyGrace:n('sft_earlyg',0),requiredMinutes:n('req_work',0)||undefined,otBands:bands('0'),offBands:bands('1')};});
+  return {code,name:cell(r,'sft_name')||code,start:toMin(cell(r,'sft_bg'))??defaultShift.start,end:toMin(cell(r,'sft_en'))??defaultShift.end,lunch:Number(cell(r,'sft_lunch'))||0,tea:Number(cell(r,'sft_tea'))||0,grace:n('sft_lateg',15),halfDay:n('hf_day',180)||180,fullDay:n('fl_day',360)||360,earlyGrace:n('sft_earlyg',0),requiredMinutes:n('req_work',0)||undefined,halfPresent:n('sf_befp',120)||120,otBands:bands('0'),offBands:bands('1')};});
 }
+
+// Late minutes as the original counts them: the delay after the grace, not once it reaches half-day minutes less the grace.
+const lateOf=(first:number,s:ShiftRule)=>{const by=first-s.start;return by>s.grace&&by<s.halfDay-s.grace?by:0;};
+// The marks of a day with a first and a last punch (minutes; the last may be after midnight): see "marks" above.
+export function marksOf(first:number,last:number,s:ShiftRule):[Mark,Mark]{
+ const end=s.end<=s.start?s.end+1440:s.end,lunchStart=s.start+Math.max(0,Math.floor((end-s.start-s.lunch)/2));
+ const inside=Math.max(0,Math.min(last,end)-Math.max(first,s.start));
+ if(inside>=s.fullDay)return ['P','P'];
+ if(inside>=s.halfDay)return first<=lunchStart-(s.halfPresent??120)?['P','A']:['A','P'];
+ return ['A','A'];
+}
+// Paid days of a month with recorded working hours: see "paid days" above.
+export function paidDaysFromHours(minutes:number){const m=Math.round(minutes),whole=Math.floor(m/480),rest=m-whole*480;return whole+(rest>=339?1:rest>=166?0.5:0);}
 
 // Half-day codes from the original attendance dictionary (tbattd).
 const workMarks=new Set<string>(['P','OD']);
@@ -43,31 +69,31 @@ const enteredMarks=new Set<string>([...leaveMarks,'OD','LWP']);
 export type DayResult={first:Mark;second:Mark;late:string;ot:string;workHours:string;outsideHours?:string;earlyHours?:string;shortHours?:string;extraHours?:string;punchIssues?:string[]};
 export function calcPunchDay(x:{in:string;out:string;shift:ShiftRule;off:boolean;holiday:boolean;otAllowed:boolean;deduct:number;punches?:Punch[]}):DayResult{
  if(x.punches?.length){
-  const p=analysePunches(x.punches),s=x.shift;const rest:Mark|null=x.off?'WO':x.holiday?'HD':null;
-  if(p.issues.length||p.first===null||p.last===null)return {first:rest||'MS',second:rest||'MS',late:'',ot:'',workHours:'',outsideHours:hhmm(p.outside),punchIssues:p.issues};
+  const s=x.shift;const rest:Mark|null=x.off?'WO':x.holiday?'HD':null;
+  const strict=analysePunches(x.punches);const lenient=strict.issues.length?lenientPunches(x.punches,strict):null;const p=lenient||strict;
+  // one punch only (or one that cannot be used): the day is incomplete (MS), but the delay of the first punch is still counted
+  const earliest=x.punches.map(q=>{const c=clockMinute(q.time);return c===null?null:c+1440*(q.dayOffset||0);}).filter((m):m is number=>m!==null).sort((a,b)=>a-b)[0]??null;
+  if((strict.issues.length&&!lenient)||p.first===null||p.last===null)return {first:rest||'MS',second:rest||'MS',late:rest||earliest===null?'':dayDuration(lateOf(earliest,s)),ot:'',workHours:'',outsideHours:hhmm(p.outside),punchIssues:strict.issues};
   const end=s.end<=s.start?s.end+1440:s.end,start=s.start;const lunchStart=start+Math.floor((end-start-s.lunch)/2),lunchEnd=lunchStart+s.lunch;
-  const fixed=s.breakPolicy==='fixed'?p.pairs.reduce((n,v)=>n+Math.max(0,Math.min(v.end,lunchEnd)-Math.max(v.start,lunchStart)),0)+s.tea:0;
+  // 'fixed' break policy: the lunch comes off whatever part of it was worked, and a tea break on each side of it that the day reaches (as in the in/out calculation below)
+  const fixed=s.breakPolicy==='fixed'?p.pairs.reduce((n,v)=>n+Math.max(0,Math.min(v.end,lunchEnd)-Math.max(v.start,lunchStart)),0)+(p.first<lunchStart?s.tea:0)+(p.last>lunchEnd?s.tea:0):0;
   const work=Math.max(0,p.inside-fixed-x.deduct),required=s.requiredMinutes??Math.max(0,end-start-s.lunch-s.tea);
-  const late=Math.max(0,p.first-start),early=Math.max(0,end-p.last),short=Math.max(0,required-work),extra=Math.max(0,work-required);
-  const first:Mark=work>=s.fullDay?'P':work>=s.halfDay&&p.first<lunchEnd?'P':'A',second:Mark=work>=s.fullDay?'P':work>=s.halfDay&&p.last>lunchStart?'P':'A';
-  return {first:rest||first,second:rest||second,workHours:dayDuration(work),outsideHours:dayDuration(p.outside),late:dayDuration(late>s.grace?late:0),earlyHours:dayDuration(early>(s.earlyGrace??0)?early:0),shortHours:dayDuration(rest?0:short),extraHours:dayDuration(extra),ot:x.otAllowed?dayDuration(roundOtMinutes(rest?work:extra,rest?s.offBands:s.otBands)):'',punchIssues:[]};
+  const early=Math.max(0,end-p.last),short=Math.max(0,required-work),extra=Math.max(0,work-required);
+  const [first,second]=marksOf(p.first,p.last,s);
+  return {first:rest||first,second:rest||second,workHours:dayDuration(work),outsideHours:dayDuration(p.outside),late:rest?'':dayDuration(lateOf(p.first,s)),earlyHours:dayDuration(early>(s.earlyGrace??0)?early:0),shortHours:dayDuration(rest?0:short),extraHours:dayDuration(extra),ot:x.otAllowed?dayDuration(roundOtMinutes(rest?work:extra,rest?s.offBands:s.otBands)):'',punchIssues:strict.issues};
  }
- const i=toMin(x.in),o=toMin(x.out);const rest:Mark|null=x.off?'WO':x.holiday?'HD':null;
- if(i==null||o==null){const m:Mark=rest||(i==null&&o==null?'A':'MS');return {first:m,second:m,late:'',ot:'',workHours:''};}
- const s=x.shift;const start=s.start;let end=s.end;if(end<=start)end+=1440;
+ const i=toMin(x.in),o=toMin(x.out);const rest:Mark|null=x.off?'WO':x.holiday?'HD':null;const s=x.shift;
+ if(i==null||o==null){const m:Mark=rest||(i==null&&o==null?'A':'MS');return {first:m,second:m,late:rest||i==null?'':dayDuration(lateOf(i,s)),ot:'',workHours:''};}
+ const start=s.start;let end=s.end;if(end<=start)end+=1440;
  const a=i;let b=o;if(b<=a)b+=1440;
  const lunchStart=start+Math.max(0,Math.floor((end-start-s.lunch)/2)),lunchEnd=lunchStart+s.lunch;
  const tea=(a<lunchStart?s.tea:0)+(b>lunchEnd?s.tea:0);
- // The marks go by the time inside the punches; the break deduction only shortens the work hours shown.
+ // The marks go by the time inside the shift window; the lunch and the break deduction only shorten the work hours shown.
  const inside=Math.max(0,b-a-Math.max(0,Math.min(b,lunchEnd)-Math.max(a,lunchStart))-tea);const work=Math.max(0,inside-(x.deduct||0));
  if(rest)return {first:rest,second:rest,late:'',ot:x.otAllowed?dayDuration(roundOtMinutes(work,s.offBands)):'',workHours:dayDuration(work)};
- const lateBy=a-start;
- // Short of a full day, each half counts when the punches reach into it: in before lunch (and less than half-day minutes
- // late) for the 1st half, out after lunch for the 2nd.
- const [first,second]:Mark[]=inside>=s.fullDay?(lateBy>=s.halfDay?['A','P']:['P','P']):inside>=s.halfDay?[a<lunchStart&&lateBy<s.halfDay?'P':'A',b>lunchEnd?'P':'A']:['A','A'];
- // No late hours once the delay reaches half-day minutes less the grace (GN: 2:45 — Jul–Aug 2026: 561 of 561 such days).
- const late=first==='P'&&lateBy>s.grace&&lateBy<s.halfDay-s.grace?lateBy:0;const ot=x.otAllowed&&b>end?roundOtMinutes(b-end,s.otBands):0;
- return {first,second,late:dayDuration(late),ot:dayDuration(ot),workHours:dayDuration(work),earlyHours:dayDuration(Math.max(0,end-b)>(s.earlyGrace??0)?Math.max(0,end-b):0),shortHours:dayDuration(Math.max(0,(s.requiredMinutes??end-start-s.lunch-s.tea)-work)),extraHours:dayDuration(Math.max(0,work-(s.requiredMinutes??end-start-s.lunch-s.tea))),outsideHours:''};
+ const [first,second]=marksOf(a,b,s);
+ const ot=x.otAllowed&&b>end?roundOtMinutes(b-end,s.otBands):0;
+ return {first,second,late:dayDuration(lateOf(a,s)),ot:dayDuration(ot),workHours:dayDuration(work),earlyHours:dayDuration(Math.max(0,end-b)>(s.earlyGrace??0)?Math.max(0,end-b):0),shortHours:dayDuration(Math.max(0,(s.requiredMinutes??end-start-s.lunch-s.tea)-work)),extraHours:dayDuration(Math.max(0,work-(s.requiredMinutes??end-start-s.lunch-s.tea))),outsideHours:''};
 }
 
 // Minutes the original deducted from a day (breaks recorded by the machine), recovered from its saved work hours.
@@ -105,9 +131,11 @@ export function processMonth(month:string,days:AttendanceDay[],job:Employment,sh
 export type MonthFigures={worked:number;weeklyOff:number;holiday:number;leave:number;payable:number;absent:number;late:number;ot:number;work:number};
 export function monthFigures(days:AttendanceDay[]):MonthFigures{
  const t:MonthFigures={worked:0,weeklyOff:0,holiday:0,leave:0,payable:0,absent:0,late:0,ot:0,work:0};
- for(const d of days){for(const m of [d.first,d.second]){if(workMarks.has(m))t.worked+=.5;else if(m==='WO')t.weeklyOff+=.5;else if(m==='HD')t.holiday+=.5;else if(leaveMarks.has(m))t.leave+=.5;else if(unpaidMarks.has(m))t.absent+=.5;}
-  t.late+=toMin(d.late)||0;t.ot+=toMin(d.ot)||0;t.work+=toMin(d.workHours)||0;}
- t.payable=t.worked+t.weeklyOff+t.holiday+t.leave;return t;
+ let onDuty=0;   // half days marked OD (on duty) that have no hours of their own: paid on top of the days the hours make
+ for(const d of days){const hours=toMin(d.workHours)||0;for(const m of [d.first,d.second]){if(workMarks.has(m)){t.worked+=.5;if(m==='OD'&&!hours)onDuty+=.5;}else if(m==='WO')t.weeklyOff+=.5;else if(m==='HD')t.holiday+=.5;else if(leaveMarks.has(m))t.leave+=.5;else if(unpaidMarks.has(m))t.absent+=.5;}
+  t.late+=toMin(d.late)||0;t.ot+=toMin(d.ot)||0;t.work+=hours;}
+ // With recorded working hours the paid days are the original's hours rule (see "paid days" above), otherwise the paid marks.
+ t.payable=t.work>0?paidDaysFromHours(t.work)+t.leave+onDuty:t.worked+t.weeklyOff+t.holiday+t.leave;return t;
 }
 export function withTotals(m:AttendanceMonth):AttendanceMonth{const f=monthFigures(m.days);
  const takenMonth=(code:string)=>m.days.reduce((s,d)=>s+(d.first===code?.5:0)+(d.second===code?.5:0),0);

@@ -219,7 +219,62 @@
 .pf-card-head{text-align:center;border-bottom:1px solid #000;margin-bottom:3px;padding-bottom:2px}
 .pf-card-body{display:flex;gap:3mm}.pf-card-foot{text-align:right;margin-top:6mm;font-size:9px}
 .pf-card-photo{width:22mm;height:27mm;border:1px solid #777;display:flex;align-items:center;justify-content:center;flex:none;overflow:hidden;color:#777}.pf-card-photo.big{width:36mm;height:44mm;margin-bottom:2px}.pf-card-photo img{width:100%;height:100%;object-fit:cover}
-.rpt-paper table.rpt-reg{table-layout:fixed;font-size:7px}.rpt-paper .rpt-reg th,.rpt-paper .rpt-reg td{padding:1px 0;text-align:center;overflow:hidden;white-space:nowrap;vertical-align:middle;line-height:1.25}.rpt-reg .rpt-reg-lab{width:2.2%}.rpt-reg .rpt-reg-sum{width:5.4%;text-align:left;padding-left:2px}.rpt-paper .rpt-reg-legend th{font-size:9px;text-align:left;padding:2px 4px;border-bottom:0}.rpt-paper .rpt-reg-info td{text-align:left;padding:2px 4px;font-size:9px}.rpt-reg-info span{margin-right:22px}.rpt-reg tbody{break-inside:avoid}
+/* ---- Attendance Register in the layout of the original software (Crystal Reports): A4 landscape, 31 day columns, six rows per day ---- */
+.rpt-paper:has(>.rpt-cr){padding:6mm}
+/* Printed on a page without margins: every measure of the original's page (it is placed to the point) is kept. */
+@page crpage{size:A4 landscape;margin:0}
+@media print{.rpt-print-root .rpt-paper:has(>.rpt-cr){padding:0;page:crpage}}
+.rpt-cr{position:relative;width:283.9mm;min-height:192mm;display:flex;flex-direction:column;color:#000;font-family:'Times New Roman',Times,serif}
+@media print{.rpt-print-root .rpt-cr{min-height:0;margin:4.71mm 0 0 6.35mm}}
+.rpt-cr .cr-head{position:relative;padding-left:5.4mm}
+.rpt-cr .cr-co{font-weight:700;font-size:12.4pt;line-height:14.9pt}
+.rpt-cr .cr-ad{margin-top:8.15pt;font-weight:700;font-size:8.8pt;line-height:10.6pt}
+.rpt-cr .cr-tt{margin-top:7.65pt;font-weight:700;font-size:10.6pt;line-height:12.7pt}
+.rpt-cr .cr-pd{position:absolute;right:8.1pt;top:58.55pt;display:flex;gap:25.6pt;font-family:Arial,Helvetica,sans-serif;font-size:8.9pt;line-height:10pt}
+.rpt-cr .cr-pd span:last-child{font-size:8.1pt;position:relative;top:-.6pt}
+.rpt-cr .cr-lg{margin-top:12.15pt;font-size:8.9pt;line-height:9pt;height:9pt;white-space:nowrap}
+.rpt-cr .cr-t{border-collapse:collapse;table-layout:fixed;width:283.9mm}
+.rpt-cr .cr-t th,.rpt-cr .cr-t td{padding:0;text-align:center;vertical-align:top;border:0;white-space:nowrap}
+.rpt-cr .cr-t thead th{height:23.3pt;overflow:hidden;border-top:2px solid #000;border-bottom:2px solid #000;border-left:1px solid #000;font-family:'Courier New',Courier,monospace;font-size:8.4pt;font-weight:400}
+.rpt-cr .cr-t thead th:last-child{border-right:1px solid #000}
+.rpt-cr .cr-t thead th b{display:block;font-size:7.9pt;font-weight:700;line-height:9.4pt}
+.rpt-cr .cr-t thead th:not(:nth-last-child(-n+2)) b{padding-left:4.8pt}
+.rpt-cr .cr-t thead th span{display:block;line-height:10.4pt}
+.rpt-cr .cr-t thead th:nth-child(2) span{font:6.7pt/10.4pt Arial,Helvetica,sans-serif}
+.rpt-cr .cr-t .cr-info td{height:14.63pt;border-bottom:1px solid #000}
+.rpt-cr .cr-t .cr-info td:first-child{text-align:left}
+.rpt-cr .cr-f{position:relative;height:13pt;font-family:'Courier New',Courier,monospace}
+.rpt-cr .cr-f span,.rpt-cr .cr-f b{position:absolute;top:0;white-space:nowrap}
+.rpt-cr .cr-l{font-size:9.4pt;line-height:12pt}
+.rpt-cr .cr-v{font-size:8.4pt;line-height:10.8pt}
+.rpt-cr .cr-f .cr-n{font:8pt/14.1pt 'Times New Roman',Times,serif}
+.rpt-cr .cr-f .cr-pw{font:700 8.8pt/15.1pt 'Times New Roman',Times,serif}
+.rpt-cr .cr-t .cr-info td.cr-pn{text-align:right;font:700 7.9pt/12.5pt 'Times New Roman',Times,serif;padding-right:2.4pt}
+.rpt-cr .cr-t .cr-info td.cr-pn:last-child{padding-right:4pt}
+/* the six rows: the original spaces them unevenly (heights 9.9 11.4 12.4 12.35 11.35 14.95 pt) */
+.rpt-cr .cr-t tbody tr:not(.cr-info) td{box-sizing:border-box;height:11.4pt;padding-top:1.2pt;border-left:1px solid #000;font-size:7.1pt;line-height:8pt}
+.rpt-cr .cr-t tbody tr:not(.cr-info) td:last-child{border-right:1px solid #000}
+.rpt-cr .cr-t tbody tr:nth-child(2) td{height:9.9pt}
+.rpt-cr .cr-t tbody tr:nth-child(4) td{height:12.4pt}
+.rpt-cr .cr-t tbody tr:nth-child(5) td{height:12.35pt}
+.rpt-cr .cr-t tbody tr:nth-child(6) td{height:11.35pt}
+.rpt-cr .cr-t tbody tr.cr-last td{height:14.95pt;border-bottom:2px solid #000}
+.rpt-cr .cr-st{display:flex;justify-content:center;white-space:nowrap}
+.rpt-cr .cr-t td.cr-cnt{text-align:left}
+.rpt-cr .cr-cnt b{font-family:'Courier New',Courier,monospace;font-size:7.9pt;font-weight:700}
+.rpt-cr .cr-cnt span{font-weight:700;margin-left:5.8pt}
+.rpt-cr .cr-t td.cr-hrs{text-align:left;padding-left:3.4pt}
+.rpt-cr .cr-hrs b{position:relative;font-family:Calibri,Arial,sans-serif;font-size:6.6pt;font-weight:700}
+.rpt-cr .cr-t tbody tr:nth-child(2) td.cr-hrs{padding-left:2.5pt}
+.rpt-cr .cr-t tbody tr:nth-child(2) td.cr-hrs b{top:1.6pt}
+.rpt-cr .cr-t tbody tr:nth-child(4) td.cr-hrs{padding-left:1.6pt}
+.rpt-cr .cr-t tbody tr:nth-child(4) td.cr-hrs b{top:.65pt}
+.rpt-cr .cr-t tbody tr:nth-child(6) td.cr-hrs{padding-left:1.6pt}
+.rpt-cr .cr-t tbody tr:nth-child(6) td.cr-hrs b{top:.6pt}
+.rpt-cr .cr-t tbody tr:nth-child(7) td.cr-hrs{padding-left:2.5pt;padding-top:4.25pt}
+.rpt-cr .cr-t thead th:nth-last-child(-n+2) b{line-height:10.2pt;margin-top:-.4pt}
+.rpt-cr .cr-foot{margin-top:auto;padding-top:3mm;text-align:center;font-size:8.5pt}
+@media print{.rpt-print-root .rpt-cr .cr-foot{position:absolute;left:545.7pt;top:562.1pt;margin:0;padding:0;text-align:left;font-size:8pt;line-height:9pt}}
 /* ---- Personal File forms in the printed (sample) format ---- */
 .pf2-frame{border:1px solid #000;padding:5mm 6mm;position:relative}
 .pf2-boxtitle{display:inline-block;border:1px solid #000;padding:2px 16px;font-weight:700;font-size:15px;text-align:center}.pf2-boxtitle.double{border:3px double #000;font-family:Arial,sans-serif;font-size:17px;padding:3px 22px}

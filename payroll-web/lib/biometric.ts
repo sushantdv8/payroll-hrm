@@ -76,23 +76,28 @@ export function rawPunchDays(employees:Employee[],map:BioMap,data:BioPunches,fro
 }
 
 // Punches -> one in / out per duty day, by the shift of each day (Monthly Shift Change included):
-// - a punch earlier than 4 hours before that day's shift start belongs to the previous day's duty, so overtime past
-//   midnight stays on the day it started (shift 09:00: punches before 05:00 go back a day);
+// - a punch earlier than the shift's "Before Punch" minutes before that day's shift start (GN 09:00: 120 → before 07:00) belongs to the previous day's duty, so overtime past
+//   midnight stays on the day it started; the original does the same: of its 48,318 days only 5 have an in time more than 120 minutes before the start. A shift without
+//   that setting keeps 4 hours;
 // - after a night shift (end before start, e.g. 20:00-08:00), punches up to 4 hours after its end are still that night's.
 // Every punch is placed on its own, so a missing in or out punch only affects its own day.
-// The first punch is the in time and the last one the out time; punches within 2 minutes of the in are repeats.
+// The first punch is the in time and the last one the out time. Every punch of the machine counts, also two a minute or two apart: the original keeps those (its archived
+// raw punches of 2026-09-23: breaks of 1 and 2 minutes are taken off, a second punch right after the first is the out time), and only the same minute is listed once.
+// A lone punch is the in time while the lunch has not started and the out time after it (the original's one-punch days: in times up to 12:55, out times from the afternoon).
 // Returns duty date -> {in,out,n}; dates outside the range asked for are dropped by the caller.
-type ShiftTimes={start:number;end:number};
-const REPEAT=2,EARLY=240,AFTER_NIGHT=240;
+type ShiftTimes={start:number;end:number;lunch?:number;halfPresent?:number};
+const EARLY=240,AFTER_NIGHT=240;
 const dayMinutes=(t:string)=>Date.UTC(+t.slice(0,4),+t.slice(5,7)-1,+t.slice(8,10))/60000+(+t.slice(11,13))*60+(+t.slice(14,16));
 const dateOf=(m:number)=>new Date(m*60000).toISOString().slice(0,10);
+const midnight=(date:string)=>Date.UTC(+date.slice(0,4),+date.slice(5,7)-1,+date.slice(8,10))/60000;
 const hm=(m:number)=>{const x=((m%1440)+1440)%1440;return String(Math.floor(x/60)).padStart(2,'0')+':'+String(x%60).padStart(2,'0');};
 export function dutyDays(times:string[],shiftFor:(date:string)=>ShiftTimes):Map<string,{in:string;out:string;n:number;punches:Punch[]}>{
  const list=[...new Set(times)].map(dayMinutes).sort((a,b)=>a-b);const groups=new Map<string,{first:number;last:number;n:number;all:number[]}>();
  for(const m of list){const today=dateOf(m),yesterday=dateOf(m-1440),tod=((m%1440)+1440)%1440;const cur=shiftFor(today),prev=shiftFor(yesterday);
-  const afterNight=prev.end<=prev.start&&tod<prev.end+AFTER_NIGHT;const beforeStart=cur.start>=EARLY&&tod<cur.start-EARLY;
+  const before=cur.halfPresent??EARLY;const afterNight=prev.end<=prev.start&&tod<prev.end+AFTER_NIGHT;const beforeStart=cur.start>=before&&tod<cur.start-before;
   const date=afterNight||beforeStart?yesterday:today;const g=groups.get(date);if(g){g.last=m;g.n++;g.all.push(m);}else groups.set(date,{first:m,last:m,n:1,all:[m]});}
  const out=new Map<string,{in:string;out:string;n:number;punches:Punch[]}>();
- for(const [date,g] of groups)out.set(date,{in:hm(g.first),out:g.last-g.first>REPEAT?hm(g.last):'',n:g.n,punches:alternatingPunches(g.all.filter((m,i,all)=>!i||m-all[i-1]>REPEAT).map(hm))});
+ for(const [date,g] of groups){const s=shiftFor(date);const lunchStart=s.start+Math.floor((s.end-s.start-(s.lunch||0))/2);const lateLone=g.n===1&&s.end>s.start&&g.first-midnight(date)>=lunchStart;
+  out.set(date,{in:lateLone?'':hm(g.first),out:g.n>1||lateLone?hm(g.last):'',n:g.n,punches:alternatingPunches(g.all.map(hm))});}
  return out;
 }

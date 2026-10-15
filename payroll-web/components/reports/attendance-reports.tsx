@@ -4,6 +4,7 @@ import {exportExcel,requestJson} from '@/lib/client-api';
 import {dMonY,dmy,monthLabel} from '@/lib/report-utils';
 import {trimCell,type MasterRow} from '@/lib/masters';
 import {classifyDay,worstTone,type DayKind,type Tone} from '@/lib/smart-report';
+import {monthFigures} from '@/lib/time-calc';
 import type {ReportConfig,ReportContext,ReportOption,ReportPage} from './report-form';
 import type {SmartSpec} from './smart-table';
 import {DailyDetail} from './daily-detail';
@@ -57,36 +58,57 @@ export const musterConfig:ReportConfig={attendanceSource:true,period:'month-days
 ]};
 
 // Time Attendence > Monthly/Periodically
-// Attendence Register in the printed layout: five employees per landscape page, each with six rows per day
-// (1 In Time, 2 Out Time, 3 Total working hours, 4 Late Hours, 5 O.T. hours, 6 Attendance status) and the month's counts on the right.
+// Attendence Register in the printed layout of the original software (Crystal Reports): 31 day columns with the weekday under the number, an employee line (PayCode,
+// Cardno, Name, Shift, Desig, Paid / Work Days) and six rows per day (1 In Time, 2 Out Time, 3 Total working hours, 4 Late Hours, 5 O.T. hours, 6 Attendance status),
+// on the right the month's counts (WO HD EL CL SL OL, blank when there are none) and the hour totals; five employees per landscape page.
+// Widths (pt) of the 31 day columns of the original's page.
+const CR_DAY_PT=[23.75,23.75,25.65,23.75,22.3,23.3,25.65,23.75,23.75,23.75,22.8,22.8,22.8,24.7,22.8,22.8,22.8,23.75,21.85,24.7,25.65,25.65,24.7,26.6,21.85,23.75,22.8,21.85,25.65,24.7,23.75];
 function monthlyRegister(ctx:ReportContext):ReportPage[]{
- const days=range(ctx);const [yy,mm]=ctx.month.split('-').map(Number);
- const wd=(d:number)=>new Date(Date.UTC(yy,mm-1,d)).toLocaleDateString('en-US',{weekday:'short',timeZone:'UTC'});
- const mon=new Date(Date.UTC(yy,mm-1,1)).toLocaleDateString('en-US',{month:'short',timeZone:'UTC'})+'-'+yy;
- const one=(v:number)=>v.toFixed(1),hm=(v:number)=>hhmm(v)||'0:00';
- const counters=['OL','SL','CL','EL','HD','WO'];const hourLabels=['T.hrs','Ot.hrs','Lt.hrs'];
+ const days=range(ctx);const full=fullMonth(ctx);const [yy,mm]=ctx.month.split('-').map(Number);const monthLen=monthDaysOf(ctx.month);
+ const slots=full?Array.from({length:31},(_,k)=>k+1):days;   // the original always prints 31 day columns
+ const wd=(d:number)=>d>monthLen?'':new Date(Date.UTC(yy,mm-1,d)).toLocaleDateString('en-US',{weekday:'short',timeZone:'UTC'});
+ const mon=monthLabel(ctx.month);const printed=dMonY(ctx.printDate).replace(/-/g,'/');
+ const one=(v:number)=>v?v.toFixed(1):'',hm=(v:number)=>hhmm(v)||'0:00';
+ const counters=['WO','HD','EL','CL','SL','OL'];const hourLabels=['T.hrs','Ot.hrs','Lt.hrs'];
+ // The original's day columns are not all the same width (its page is cut on a coarse grid): a full month takes those widths, a part of the month shares the room evenly.
+ const dayWidth=(d:number)=>`${(full?CR_DAY_PT[d-1]*25.4/72:260.4/Math.max(1,slots.length)).toFixed(3)}mm`;
  const parts=chunk(ctx.employees,5);if(!parts.length)parts.push([]);
  const block=(e:Employee)=>{
   const a=ctx.attendance.get(e.id);const m=new Map((a?.days||[]).map(d=>[d.day,d]));const t=totalsFor(ctx,e);const c=markCounts(a,ctx.dayFrom,ctx.dayTo);
   const shift=a?.days.find(d=>d.shift)?.shift||listName(ctx,'tbshift',extraOf(ctx,e)?.sft);
   const sum=(key:'workHours'|'late'|'ot')=>days.reduce((s,d)=>{const x=m.get(d);return s+minutes(key==='late'?(x?.late||x?.sourceLateHours):x?.[key]);},0);
-  const hours=[hm(sum('workHours')),hm(sum('ot')),hm(sum('late'))];
-  const cell=(r:number,d:number)=>{const x=m.get(d);if(!x)return '';
+  const work=sum('workHours');const hours=[hm(work),hm(sum('ot')),hm(sum('late'))];
+  // Paid days as the original prints them: with recorded working hours they come from the hours (lib/time-calc.ts monthFigures, "paid days"), else from the paid marks.
+  // The saved P.Day of a full month is kept when it is the original's own (it is not the paid marks, which an earlier calculation of this app saved).
+  const marksPaid=['P','OD','WO','HD',...LEAVE].reduce((s,k)=>s+(c[k]||0),0);
+  const fig=monthFigures((a?.days||[]).filter(d=>d.day>=ctx.dayFrom&&d.day<=ctx.dayTo));
+  const byHours=fig.work>0?fig.payable:null;const stored=full&&typeof a?.totals.payable==='number'?a.totals.payable:null;
+  const paid=stored!==null&&(byHours===null||stored!==marksPaid)?stored:byHours??marksPaid;
+  const count=(code:string)=>code==='OL'?['PL','CO','MT','SP'].reduce((s,k)=>s+(c[k]||0),0):c[code]||0;   // OL: the other leaves
+  const cell=(r:number,d:number)=>{const x=m.get(d);if(!x||d>monthLen)return '';
    if(r===0)return x.manualIn||x.machineIn||'';if(r===1)return x.manualOut||x.machineOut||'';if(r===2)return x.workHours||'';
    if(r===3)return x.late||x.sourceLateHours||'';if(r===4)return x.ot||'';return x.first||x.second?`${x.first||'-'}-${x.second||'-'}`:'';};
   return <tbody key={e.id}>
-   <tr className="rpt-reg-info"><td colSpan={days.length+3}><span><b>PayCode:</b> {e.paycode}</span><span><b>Cardno:</b> {e.cardNo}</span><span><b>Name:</b> {e.name}</span><span><b>Shift:</b> {shift}</span><span><b>Desig:</b> {e.designation}</span><span><b>Paid/ Work Days</b> {t.PD||'0.0'} / {t.WD||'0.0'}</span></td></tr>
-   {[0,1,2,3,4,5].map(r=><tr key={r}><td className="c rpt-reg-lab">{r+1}</td>{days.map(d=><td key={d} className="c">{cell(r,d)}</td>)}
-    <td className="rpt-reg-sum"><b>{counters[r]}</b> {one(c[counters[r]]||0)}</td>
-    <td className="rpt-reg-sum">{r%2===0?<b>{hourLabels[r/2]}</b>:hours[(r-1)/2]}</td></tr>)}
+   <tr className="cr-info"><td colSpan={slots.length+1}><div className="cr-f">
+    <span className="cr-l" style={{left:0}}>PayCode:</span><span className="cr-v" style={{left:'22.1mm'}}>{e.paycode}</span>
+    <span className="cr-l" style={{left:'39.5mm'}}>Cardno:</span><span className="cr-v" style={{left:'55.6mm'}}>{e.cardNo}</span>
+    <span className="cr-l" style={{left:'73.7mm'}}>Name:</span><span className="cr-n" style={{left:'89.8mm'}}>{e.name}</span>
+    <span className="cr-l" style={{left:'155.5mm'}}>Shift:</span><span className="cr-v" style={{left:'171.6mm'}}>{shift}</span>
+    <span className="cr-l" style={{left:'181.6mm'}}>Desig:</span><span className="cr-v" style={{left:'198.5mm'}}>{e.designation}</span>
+    <b className="cr-pw" style={{left:'239.7mm'}}>Paid/Work Days</b></div></td>
+    <td className="cr-pn">{paid.toFixed(1)}</td><td className="cr-pn">{t.WD||'0.0'}</td></tr>
+   {[0,1,2,3,4,5].map(r=><tr key={r} className={r===5?'cr-last':''}><td className="cr-lab">{r+1}</td>{slots.map(d=><td key={d}>{r===5?<span className="cr-st">{cell(r,d)}</span>:cell(r,d)}</td>)}
+    <td className="cr-cnt"><b>{counters[r]}</b><span>{one(count(counters[r]))}</span></td>
+    <td className="cr-hrs">{r%2===0?<b>{hourLabels[r/2]}</b>:hours[(r-1)/2]}</td></tr>)}
   </tbody>;};
- return parts.map((part,p)=>({key:`mr-${p}`,orientation:'landscape' as const,tree:part[0]?.paycode||`Page ${p+1}`,trees:part.map(e=>e.paycode),node:<>
-  <Header ctx={ctx} title={`Attendance Register for the month of ${mon}`} page={p+1} pages={parts.length}/>
-  <table className="rpt-reg"><thead>
-   <tr className="rpt-reg-legend"><th colSpan={days.length+3}>1.In Time &nbsp; 2.Out Time &nbsp; 3.Total working hours &nbsp; 4.Late Hours &nbsp; 5.O.T.hours &nbsp; 6.Attendance status</th></tr>
-   <tr><th className="rpt-reg-lab"/>{days.map(d=><th key={d}>{d}</th>)}<th className="rpt-reg-sum">Tot Atd</th><th className="rpt-reg-sum">Tot. Hrs.</th></tr>
-   <tr><th className="rpt-reg-lab"/>{days.map(d=><th key={d}>{wd(d)}</th>)}<th/><th/></tr></thead>
-   {part.map(block)}</table></>}));}
+ return parts.map((part,p)=>({key:`mr-${p}`,orientation:'landscape' as const,tree:part[0]?.paycode||`Page ${p+1}`,trees:part.map(e=>e.paycode),node:<div className="rpt-cr">
+  <div className="cr-head"><div className="cr-co">{ctx.company.name}</div><div className="cr-ad">{ctx.company.address}</div><div className="cr-tt">Attendance Register for the month of {mon}</div>
+   {printed&&<div className="cr-pd"><span>Print date</span><span>{printed}</span></div>}</div>
+  <div className="cr-lg">1.In Time 2.Out Time 3.Total working hours 4.Late Hours 5.O.T.hours 6.Attendance status</div>
+  <table className="cr-t"><colgroup><col style={{width:'5.4mm'}}/>{slots.map(d=><col key={d} style={{width:dayWidth(d)}}/>)}<col style={{width:'8.7mm'}}/><col style={{width:'9.4mm'}}/></colgroup>
+   <thead><tr><th/>{slots.map(d=><th key={d}><b>{d}</b><span>{wd(d)}</span></th>)}<th><b>Atd<br/>Tot</b></th><th><b>Hrs.<br/>Tot.</b></th></tr></thead>
+   {part.map(block)}</table>
+  <div className="cr-foot">{p+1}</div></div>}));}
 // (Monthly/Periodically is built below, after the day-wise helpers it shares with Periodically Reports.)
 
 // Time Attendence > Daily Reports

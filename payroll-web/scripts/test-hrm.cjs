@@ -27,4 +27,72 @@ test('Hours salary pays configured leave but separates OT from base',()=>{let a=
 test('Unit-specific shift overrides shared shift and validates OT ranges',()=>{const {unitShifts,parseOtBands}=require(lib+'/hr-shifts.ts');const data={code:'Q',name:'QA Shift',start:'09:00',end:'18:00',lunch:60,tea:0,grace:10,earlyGrace:5,requiredHours:8,halfHours:4,fullHours:8,otBands:'',offBands:''};const shared=record('shifts',data,{employeeId:'',unit:''}),local=record('shifts',{...data,start:'10:00'},{employeeId:'',unit:'QA'});assert.equal(unitShifts([], [shared,local],'QA')[0].start,600);assert.equal(unitShifts([], [shared,local],'OTHER')[0].start,540);assert.throws(()=>parseOtBands('0 | 60 | 60\n30 | 90 | 90'),/overlap/);});
 test('Finance includes direct expenses without doubling payroll reimbursements',()=>{const salary={employeeId:employee.id,month,sourceDataset:'manual',payableDays:20,gross:10500,totalDeductions:0,net:10500,earnings:[{label:'Basic',amount:10000},{label:'REIMBURSEMENT',amount:500}],deductions:[],employerPF:1200,employerESI:300};const direct=record('expenses',{date:'2026-10-02',month,amount:100,method:'Direct'},{status:'paid'}),payroll=record('expenses',{date:'2026-10-02',month,amount:500,method:'Payroll'},{status:'paid'}),budget=record('budgets',{year:2026,amount:20000},{employeeId:''});const report=buildHrReport('finance',[employee],[],[salary],[direct,payroll,budget],defaultHrSettings,{from:'2026-10-01',to:'2026-10-31',group:'employee'});assert.equal(report.summary['Total employee cost'],12100);assert.equal(report.summary['Annual budget'],20000);assert.equal(report.summary['Budget less actual'],7900);});
 test('A full 24-hour explicit punch span is retained without truncation',()=>{const d=calcPunchDay({in:'',out:'',punches:parsePunchText('IN 00:00, OUT 00:00 +1'),shift:defaultShift,off:false,holiday:false,otAllowed:true,deduct:0});assert.equal(d.workHours,'24:00');});
+// ---- Time Updation against the original software (KISHOR EXPORT): the machines' raw punches of 2026-09-23 (the one day of them in its archive) and the
+// original's own processed day for the same punches, plus the Attendance Register it printed for one employee (Oct-2026, days 1-15).
+const {processMonth,monthFigures,shiftRulesFrom,marksOf,paidDaysFromHours,toMin}=require(lib+'/time-calc.ts'),{alternatingPunches,lenientPunches}=require(lib+'/multi-punch.ts'),{dutyDays}=require(lib+'/biometric.ts');
+const GN={...defaultShift,breakPolicy:'fixed'};
+const GN2={...shiftRulesFrom([{values:{sft_code:'2',sft_name:'GN2',sft_bg:'07:30',sft_en:'17:30',sft_lunch:'30',sft_tea:'15',sft_lateg:'15',sf_befp:'60',hf_day:'180',fl_day:'360'}}],[])[0],breakPolicy:'fixed'};
+const rawDay=(shift,times)=>calcPunchDay({in:'',out:'',punches:alternatingPunches(times.split(' ')),shift,off:false,holiday:false,otAllowed:false,deduct:0});
+test("Machine punches come out as the original's processed day: pairs, odd counts, half days, tea breaks",()=>{
+ // [shift, punches, work hours, late, marks] exactly as the original's tables gave them for the same punches
+ for(const [shift,punches,hours,late,marks] of [
+  [GN,'09:56 20:27','09:31','00:56','P-P'],[GN,'10:48 23:50','12:02','01:48','P-P'],[GN,'09:06 21:50','11:44','','P-P'],[GN,'09:01 18:32','08:31','','P-P'],
+  [GN,'14:01 18:23','04:22','','A-P'],[GN,'09:02 14:11','04:09','','P-A'],[GN,'12:15 21:46','08:31','','A-P'],[GN,'10:03 12:49','02:46','01:03','A-A'],[GN,'16:50 19:34','02:44','','A-A'],[GN,'09:00 11:18','02:18','','A-A'],
+  [GN,'11:25 17:46 18:09 21:43','08:55','02:25','P-P'],[GN,'09:56 16:15 16:33 19:01','07:47','00:56','P-P'],[GN,'10:19 14:08 14:26 19:15','07:38','01:19','P-P'],[GN,'09:40 13:24 13:48 19:10','08:30','00:40','P-P'],
+  [GN,'09:26 17:45 18:18 19:14','08:15','00:26','P-P'],[GN,'10:35 15:44 15:46 19:13','07:36','01:35','P-P'],[GN,'09:11 09:45 09:47 19:44','09:31','','P-P'],
+  [GN,'11:17 13:23 14:26 16:59 17:24 19:25','06:17','02:17','P-P'],[GN,'08:24 12:20 12:30 15:32 15:40 20:14','10:32','','P-P'],[GN,'11:36 13:18 13:53 17:55 18:14 21:32','08:37','02:36','P-P'],[GN,'10:06 13:21 14:15 16:57 17:20 19:17','07:33','01:06','P-P'],
+  [GN,'11:05 13:33 14:14 17:49 18:18 20:07 20:13 21:32','08:38','02:05','P-P'],[GN,'09:44 10:32 10:50 16:11 16:20 18:44 18:52 21:55','10:36','00:44','P-P'],
+  // an odd number of punches: one stretch from the first to the last, the lunch taken off, the punches between ignored
+  [GN,'11:16 13:37 18:32 19:18 20:52','08:36','02:16','P-P'],[GN,'09:33 13:21 18:52 19:13 20:14','09:41','00:33','P-P'],[GN,'10:29 13:36 14:14 21:53 21:54','10:25','01:29','P-P'],[GN,'10:18 21:49 22:26','11:08','01:18','P-P'],
+  // shift GN2: lunch 30 and a tea break of 15 on each side of it
+  [GN2,'07:44 17:35','08:51','','P-P'],[GN2,'08:00 17:10','08:10','00:30','P-P']]){
+  const d=rawDay(shift,punches);assert.equal(d.workHours,hours,punches+' hours');assert.equal(d.late,late,punches+' late');assert.equal(d.first+'-'+d.second,marks,punches+' marks');}
+});
+test('A day with a missing punch is worked out but stays reported as incomplete',()=>{
+ const odd=rawDay(GN,'11:16 13:37 18:32 19:18 20:52');assert.ok(odd.punchIssues.length);assert.equal(odd.workHours,'08:36');
+ assert.equal(lenientPunches(alternatingPunches(['09:00']),analysePunches(alternatingPunches(['09:00']))),null);
+ const one=rawDay(GN,'10:06');assert.equal(one.first,'MS');assert.equal(one.second,'MS');assert.equal(one.workHours,'');assert.equal(one.late,'01:06');
+});
+test('Punches a minute or two apart all count (the original keeps them)',()=>{
+ const days=dutyDays(['2026-10-01 09:00','2026-10-01 09:01','2026-10-01 18:00','2026-10-02 08:55','2026-10-02 08:56'],()=>({start:540,end:1080}));
+ const a=days.get('2026-10-01'),b=days.get('2026-10-02');assert.equal(a.in,'09:00');assert.equal(a.out,'18:00');assert.equal(a.punches.length,3);
+ assert.equal(b.in,'08:55');assert.equal(b.out,'08:56');assert.equal(b.punches.length,2);
+});
+test("Duty days follow the original: the Before Punch limit between two days, a lone punch is the in time before lunch and the out time after it",()=>{
+ const gn=()=>defaultShift;   // 09:00-18:00, lunch 60 (13:00), Before Punch 120
+ let days=dutyDays(['2026-10-05 06:45','2026-10-05 23:40','2026-10-06 07:40','2026-10-06 17:35'],gn);
+ assert.equal(days.get('2026-10-04').out,'06:45');assert.equal(days.get('2026-10-04').in,'');   // before 07:00: the previous day's
+ assert.equal(days.get('2026-10-05').out,'23:40');assert.equal(days.get('2026-10-05').in,'');
+ assert.equal(days.get('2026-10-06').in,'07:40');assert.equal(days.get('2026-10-06').out,'17:35');
+ days=dutyDays(['2026-10-05 10:06','2026-10-06 12:55','2026-10-07 13:30'],gn);
+ assert.equal(days.get('2026-10-05').in,'10:06');assert.equal(days.get('2026-10-05').out,'');assert.equal(days.get('2026-10-06').in,'12:55');assert.equal(days.get('2026-10-07').in,'');assert.equal(days.get('2026-10-07').out,'13:30');
+ // a shift with no Before Punch setting keeps 4 hours
+ days=dutyDays(['2026-10-05 06:00','2026-10-05 18:00'],()=>({start:540,end:1080}));assert.equal(days.get('2026-10-05').in,'06:00');
+});
+test("Marks by the time inside the shift window and paid days from the hours, as the original does",()=>{
+ assert.deepEqual(marksOf(637,878,GN),['P','A']);assert.deepEqual(marksOf(841,1103,GN),['A','P']);assert.deepEqual(marksOf(603,769,GN),['A','A']);assert.deepEqual(marksOf(540,1080,GN),['P','P']);
+ // the original's own months: a whole day per 8 hours, then from 166 minutes left over half a day and from 339 a whole one (2427 months with hours, 4 differ)
+ assert.equal(paidDaysFromHours(0),0);assert.equal(paidDaysFromHours(165),0);assert.equal(paidDaysFromHours(166),0.5);assert.equal(paidDaysFromHours(338),0.5);assert.equal(paidDaysFromHours(339),1);
+ assert.equal(paidDaysFromHours(5492),11.5);assert.equal(paidDaysFromHours(4800+165),10);assert.equal(paidDaysFromHours(4800+166),10.5);assert.equal(paidDaysFromHours(4800+339),11);
+ // paid leave of the month is paid on top of the days the hours make; weekly offs and holidays are not added when there are hours
+ const leaveMonth=Array.from({length:3},(_,k)=>({day:k+1,manualIn:'',manualOut:'',shift:'GN',first:k<2?'P':'CL',second:k<2?'P':'CL',workHours:k<2?'08:00':'',ot:'',late:''}));
+ assert.equal(monthFigures(leaveMonth).payable,3);assert.equal(monthFigures([...leaveMonth,{day:4,manualIn:'',manualOut:'',shift:'GN',first:'WO',second:'WO',ot:'',late:''}]).payable,3);
+ assert.equal(monthFigures([{day:1,manualIn:'',manualOut:'',shift:'GN',first:'P',second:'P',ot:'',late:''},{day:2,manualIn:'',manualOut:'',shift:'GN',first:'WO',second:'WO',ot:'',late:''}]).payable,2);
+ // on-duty days without hours of their own are paid on top, those with hours are in the hours already
+ const od=(hours)=>[{day:1,manualIn:'',manualOut:'',shift:'GN',first:'P',second:'P',workHours:'08:00',ot:'',late:''},{day:2,manualIn:'',manualOut:'',shift:'GN',first:'OD',second:'OD',workHours:hours,ot:'',late:''}];
+ assert.equal(monthFigures(od('')).payable,2);assert.equal(monthFigures(od('08:00')).payable,2);
+});
+test("Oct-2026 of one employee comes out as the original's Attendance Register printed it",()=>{
+ const printed=[[1,'11:27','19:43','06:23','02:27','P-P'],[2,'','','','','A-A'],[3,'10:37','14:38','03:01','01:37','P-A'],[4,'','','','','WO-WO'],[5,'10:20','18:57','07:37','01:20','P-P'],[6,'10:30','19:27','07:57','01:30','P-P'],
+  [7,'10:38','19:28','07:50','01:38','P-P'],[8,'10:24','19:57','07:38','01:24','P-P'],[9,'10:00','20:12','08:03','01:00','P-P'],[10,'10:11','19:56','08:05','01:11','P-P'],[11,'10:20','18:06','06:46','','WO-WO'],
+  [12,'10:42','21:07','09:21','01:42','P-P'],[13,'09:57','21:10','10:13','00:57','P-P'],[14,'10:08','19:48','08:38','01:08','P-P'],[15,'10:06','','','01:06','MS-MS']];
+ // the breaks that explain the printed hours are entered as the day's deduction (the lunch is taken off by the shift)
+ const days=Array.from({length:31},(_,k)=>{const d=k+1,p=printed.find(x=>x[0]===d),a=toMin(p?.[1]),b=toMin(p?.[2]);let deduct=0;
+  if(a!=null&&b!=null){const inside=b-a-Math.max(0,Math.min(b,840)-Math.max(a,780));deduct=Math.max(0,inside-toMin(p[3]));}
+  return {day:d,manualIn:'',manualOut:'',machineIn:p?.[1]||'',machineOut:p?.[2]||'',shift:'GN',first:'',second:'',ot:'',late:'',deduct};});
+ const out=processMonth('2026-10',days,{doj:'2024-06-22',dol:'',daily:false,otAllowed:false,shiftName:'GN',offDays:new Set([4,11,18,25]),holidays:new Set(),weeklyOffMinimum:3},()=>GN);
+ for(const p of printed){const d=out[p[0]-1];assert.equal(d.workHours||'',p[3],'day '+p[0]+' hours');assert.equal(d.late||'',p[4],'day '+p[0]+' late');assert.equal(d.first+'-'+d.second,p[5],'day '+p[0]+' status');}
+ assert.equal(out[24].first+'-'+out[24].second,'WO*-WO*');assert.equal(out[17].first,'WO');assert.equal(out[15].first+'-'+out[15].second,'A-A');
+ const f=monthFigures(out);assert.equal(f.worked,10.5);assert.equal(f.weeklyOff,3);assert.equal(f.payable,11.5);assert.equal(f.work,91*60+32);assert.equal(f.late,17*60);
+});
 console.log(`${count} HRM calculation and permission tests passed.`);
