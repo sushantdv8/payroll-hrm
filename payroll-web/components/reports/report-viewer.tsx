@@ -1,9 +1,10 @@
 'use client';
 import {useEffect,useMemo,useRef,useState,type Dispatch,type KeyboardEvent as ReactKeyboardEvent,type PointerEvent as ReactPointerEvent,type SetStateAction} from 'react';
 import {createPortal} from 'react-dom';
-import {ChevronDown,ChevronFirst,ChevronLast,ChevronLeft,ChevronRight,ChevronsDownUp,ChevronsLeft,ChevronsRight,ChevronsUpDown,FileSpreadsheet,FileText,GalleryVertical,ListTree,Maximize2,Minimize2,Printer,RefreshCw,Search,X,ZoomIn,ZoomOut} from 'lucide-react';
+import {ChevronDown,ChevronFirst,ChevronLast,ChevronLeft,ChevronRight,ChevronsDownUp,ChevronsLeft,ChevronsRight,ChevronsUpDown,FileSpreadsheet,FileText,GalleryVertical,ListTree,Maximize2,Minimize2,Printer,RefreshCw,Search,Sparkles,X,ZoomIn,ZoomOut} from 'lucide-react';
 import {toast} from 'sonner';
 import type {ReportPage} from './report-form';
+import {SmartView,loadSmartPrefs,saveSmartPrefs} from './smart-table';
 
 // The viewer of the report screens: toolbar, group tree on the left, the page on the right.
 // A screen that prints several documents for each employee (Personal File forms) gives its pages `owners`: the tree then lists every employee (code · name) with the selected documents under it,
@@ -78,7 +79,9 @@ export function Viewer({pages,onRefresh,onExcel,title,active=true}:{pages:Report
  const [page,setPage]=useState(0);const [sel,setSel]=useState('');const [open,setOpen]=useState<Set<string>>(()=>new Set());
  const [tree,setTree]=useState(()=>typeof window==='undefined'||window.innerWidth>=760);
  const [zoomMode,setZoomMode]=useState<Zoom>(prefs.zoom);const [view,setView]=useState(prefs.view);const [widths,setWidths]=useState({g:prefs.wg,f:prefs.wf});
- const [find,setFind]=useState('');const [pageText,setPageText]=useState('1');const [printing,setPrinting]=useState<''|'all'|'employee'|'page'>('');const [menu,setMenu]=useState(false);const [max,setMax]=useState(false);const [box,setBox]=useState({w:0,h:0});
+ const [find,setFind]=useState('');const [pageText,setPageText]=useState('1');const [printing,setPrinting]=useState<''|'all'|'employee'|'page'|'smart'>('');const [menu,setMenu]=useState(false);const [max,setMax]=useState(false);const [box,setBox]=useState({w:0,h:0});
+ // A table report can also be shown as the smart view (search, sort, filter, group, quick filters); the choice is remembered for that kind of report.
+ const table=pages[0]?.table;const [smartOn,setSmartOn]=useState(()=>{if(!table)return false;const s=loadSmartPrefs(table);return s.on===undefined?!!table.smart?.defaultView:!!s.on;});const smart=smartOn&&!!table;const [smartPages,setSmartPages]=useState<ReportPage[]>([]);
  const root=useRef<HTMLDivElement>(null);const canvas=useRef<HTMLDivElement>(null);const tabs=useRef<HTMLDivElement>(null);const quiet=useRef(0);const byScroll=useRef(false);
  const {groups,leaves}=useMemo(()=>buildTree(pages),[pages]);
  const groupAt=useMemo(()=>new Map((groups||[]).map((g,i)=>[g.id,i])),[groups]);
@@ -101,7 +104,7 @@ export function Viewer({pages,onRefresh,onExcel,title,active=true}:{pages:Report
  useEffect(()=>{if(groupId)setOpen(s=>s.has(groupId)?s:new Set(s).add(groupId));},[groupId]);
  useEffect(()=>setPageText(String(current+1)),[current]);
  // The arrow keys work as soon as the report is on screen.
- useEffect(()=>{if(active)root.current?.focus({preventScroll:true});},[active]);
+ useEffect(()=>{if(active&&!smart)root.current?.focus({preventScroll:true});},[active,smart]);
  // The tab of the document on view stays inside the row of tabs.
  useEffect(()=>{const row=tabs.current,on=row?.querySelector<HTMLElement>('.is-on');if(!row||!on)return;
   if(on.offsetLeft<row.scrollLeft)row.scrollLeft=on.offsetLeft-8;else if(on.offsetLeft+on.offsetWidth>row.scrollLeft+row.clientWidth)row.scrollLeft=on.offsetLeft+on.offsetWidth-row.clientWidth+8;},[current,groupId]);
@@ -127,6 +130,7 @@ export function Viewer({pages,onRefresh,onExcel,title,active=true}:{pages:Report
   if(groups){const from=gi+1,hit=[...groups.slice(from),...groups.slice(0,from)].find(g=>g.label.toLowerCase().includes(q));if(hit)pick(hit.first,hit.id);else toast.error('Not found in the page list.');return;}
   const has=(p:ReportPage)=>[p.tree||'',p.find||'',...(p.trees||[])].some(l=>l.toLowerCase().includes(q));const hit=pages.findIndex((p,i)=>i>current&&has(p));const first=hit>=0?hit:pages.findIndex(has);if(first>=0)setPage(first);else toast.error('Not found in the page list.');}
  function onKey(e:ReactKeyboardEvent<HTMLDivElement>){
+  if(smart){if(e.key==='Escape'&&max&&!/^(INPUT|SELECT|TEXTAREA)$/.test((e.target as HTMLElement).tagName)){setMax(false);e.preventDefault();}return;}   // the smart view has its own keys
   if(/^(INPUT|SELECT|TEXTAREA)$/.test((e.target as HTMLElement).tagName)||e.altKey||e.metaKey)return;
   const k=e.key;let used=true;
   if(k==='Escape'){if(menu)setMenu(false);else if(max)setMax(false);else used=false;}
@@ -139,20 +143,22 @@ export function Viewer({pages,onRefresh,onExcel,title,active=true}:{pages:Report
   const move=(ev:PointerEvent)=>{const w=Math.round(Math.min(560,Math.max(100,w0+ev.clientX-x0)));setWidths(s=>isGroups?{...s,g:w}:{...s,f:w});};
   const up=()=>{window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up);};window.addEventListener('pointermove',move);window.addEventListener('pointerup',up);}
  if(!pages.length)return <div className="rpt-empty">No records match the selection. Change the selection and press Generate.</div>;
- const printPages=printing==='page'?[here]:printing==='employee'?(()=>{const list=pages.filter(p=>isOwn(p)&&p.owners![0].id===groupId);return list.length?list:[here];})():pages;
+ const printPages=printing==='smart'?smartPages:printing==='page'?[here]:printing==='employee'?(()=>{const list=pages.filter(p=>isOwn(p)&&p.owners![0].id===groupId);return list.length?list:[here];})():pages;
  const captionOf=(i:number)=>group?.items.find(it=>it.page===i)?.label||pages[i].file||'';
  return <div className={'rpt-viewer adv'+(max?' is-max':'')} ref={root} tabIndex={0} onKeyDown={onKey}>
   <div className="rpt-toolbar no-print">
    <div className="rpt-menu-wrap"><button type="button" title="Print" aria-haspopup="menu" aria-expanded={menu} className={menu?'is-on':''} onClick={()=>setMenu(v=>!v)}><Printer size={16}/></button>
     {menu&&<div className="rpt-menu" role="menu">
-     <button type="button" role="menuitem" onClick={()=>{setMenu(false);setPrinting('all');}}>Print all pages ({pages.length})</button>
+     <button type="button" role="menuitem" onClick={()=>{setMenu(false);setPrinting('all');}}>{smart?`Print the whole report, printed layout (${pages.length} pages)`:`Print all pages (${pages.length})`}</button>
      {groups&&ownCount>0&&<button type="button" role="menuitem" onClick={()=>{setMenu(false);setPrinting('employee');}}>Print this employee's documents ({ownCount})</button>}
-     <button type="button" role="menuitem" onClick={()=>{setMenu(false);setPrinting('page');}}>Print this page</button></div>}</div>
-   {onExcel&&<button type="button" title="Export to Excel" onClick={onExcel}><FileSpreadsheet size={16}/></button>}
+     {!smart&&<button type="button" role="menuitem" onClick={()=>{setMenu(false);setPrinting('page');}}>Print this page</button>}</div>}</div>
+   {onExcel&&!smart&&<button type="button" title="Export to Excel" onClick={onExcel}><FileSpreadsheet size={16}/></button>}
    <button type="button" title="Refresh" onClick={onRefresh}><RefreshCw size={16}/></button>
-   <button type="button" title="Show / hide the list on the left" className={tree?'is-on':''} onClick={()=>setTree(v=>!v)}><ListTree size={16}/></button>
-   {groups&&<button type="button" title={view==='file'?'All documents of the employee are shown one below the other - click to show one page at a time':'Show all documents of the employee one below the other'} aria-pressed={view==='file'} className={view==='file'?'is-on':''} onClick={()=>setView(v=>v==='file'?'page':'file')}><GalleryVertical size={16}/></button>}
+   {table&&<button type="button" className={'rpt-smart-toggle'+(smart?' is-on':'')} title={smart?'Back to the printed pages':'Smart view: search, sort, filter and group the rows, quick filters, details'} aria-pressed={smart} onClick={()=>{const v=!smartOn;setSmartOn(v);saveSmartPrefs(table,{on:v});}}><Sparkles size={15}/><span>Smart view</span></button>}
+   {!smart&&<button type="button" title="Show / hide the list on the left" className={tree?'is-on':''} onClick={()=>setTree(v=>!v)}><ListTree size={16}/></button>}
+   {!smart&&groups&&<button type="button" title={view==='file'?'All documents of the employee are shown one below the other - click to show one page at a time':'Show all documents of the employee one below the other'} aria-pressed={view==='file'} className={view==='file'?'is-on':''} onClick={()=>setView(v=>v==='file'?'page':'file')}><GalleryVertical size={16}/></button>}
    <button type="button" title={max?'Back to the normal size (Esc)':'Full view'} aria-pressed={max} className={max?'is-on':''} onClick={()=>setMax(v=>!v)}>{max?<Minimize2 size={16}/>:<Maximize2 size={16}/>}</button>
+   {!smart&&<>
    <span className="rpt-sep"/>
    <button type="button" title="First page (Home)" disabled={current===0} onClick={()=>go(0)}><ChevronFirst size={16}/></button>
    <button type="button" title="Previous page (←)" disabled={current===0} onClick={()=>go(current-1)}><ChevronLeft size={16}/></button>
@@ -167,9 +173,9 @@ export function Viewer({pages,onRefresh,onExcel,title,active=true}:{pages:Report
    <span className="rpt-sep"/>
    <button type="button" title="Zoom out (-)" onClick={()=>zoomBy(-1)}><ZoomOut size={16}/></button>
    <select aria-label="Zoom" value={String(zoomMode)} onChange={e=>{const v=e.target.value;setZoomMode(v==='width'||v==='page'?v:Number(v));}}><option value="width">Fit width</option><option value="page">Fit page</option>{STEPS.map(z=><option key={z} value={String(z)}>{Math.round(z*100)}%</option>)}</select>
-   <button type="button" title="Zoom in (+)" onClick={()=>zoomBy(1)}><ZoomIn size={16}/></button>
+   <button type="button" title="Zoom in (+)" onClick={()=>zoomBy(1)}><ZoomIn size={16}/></button></>}
   </div>
-  <div className="rpt-body">
+  {smart&&table?<div className="rpt-body"><SmartView table={table} active={active} onPrint={(rows,note)=>{setSmartPages(table.pagesFor(rows,note));setPrinting('smart');}}/></div>:<div className="rpt-body">
    {tree&&(groups?groups.length:leaves.length)>0&&<><TreePanel groups={groups} leaves={leaves} open={open} setOpen={setOpen} page={current} groupId={groupId} width={groups?widths.g:widths.f} onPick={pick}/>
     <div className="rpt-split no-print" role="separator" aria-orientation="vertical" title="Drag to change the width of the list" onPointerDown={dragTree}/></>}
    <div className="rpt-canvas" ref={canvas} onScroll={spy}>
@@ -179,7 +185,7 @@ export function Viewer({pages,onRefresh,onExcel,title,active=true}:{pages:Report
     {stack.map(i=><div key={pages[i].key} className="rpt-sheet" data-page={i}>
      {stack.length>1&&<div className="rpt-sheet-cap">{captionOf(i)}</div>}
      <div style={{zoom}}><div className={'rpt-paper '+pages[i].orientation}>{pages[i].node}</div></div></div>)}
-   </div></div>
+   </div></div>}
   {printing&&createPortal(<div className="rpt-print-root" aria-label={title}>{printPages.map(p=><div key={p.key} className={'rpt-paper '+p.orientation}>{p.node}</div>)}</div>,document.body)}
  </div>;
 }

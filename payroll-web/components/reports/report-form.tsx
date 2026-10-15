@@ -1,6 +1,7 @@
 'use client';
 import {useMemo,useState,type ReactNode} from 'react';
 import {useQueries,useQuery,useQueryClient} from '@tanstack/react-query';
+import {ChevronLeft,ChevronRight} from 'lucide-react';
 import {toast} from 'sonner';
 import type {AttendanceMonth,Employee} from '@/lib/payroll';
 import type {SalarySnapshot} from '@/lib/backup';
@@ -12,6 +13,7 @@ import {Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle} from '@
 import {Button} from '@/components/ui/button';
 import {ErrorMessage} from '../payroll-controls';
 import {Viewer,orderByOwner} from './report-viewer';
+import type {SmartTable} from './smart-table';
 import './reports.css';
 
 export type FilterKey='company'|'subCompany'|'location'|'dhead'|'department'|'designation'|'category'|'salaryGrade'|'leaveGrade'|'shift';
@@ -26,12 +28,14 @@ export type ReportField={key:string;label:string;kind:'text'|'number'|'date'|'se
 // owners: the employees the page is printed for ("code · name"). A screen that prints several documents for each employee (Personal File forms) gives its pages owners and a file (the document's name):
 // the viewer then lists each employee in the group tree with the documents under it, and the pages are ordered employee by employee.
 export type ReportOwner={id:string;label:string};
-export type ReportPage={key:string;tree?:string;trees?:string[];find?:string;file?:string;owners?:ReportOwner[];orientation:'portrait'|'landscape';node:ReactNode};
+// table: the page's table as data (tablePages sets it): the viewer's smart view shows it as a table that can be searched, sorted, filtered, grouped and exported.
+export type ReportPage={key:string;tree?:string;trees?:string[];find?:string;file?:string;owners?:ReportOwner[];orientation:'portrait'|'landscape';node:ReactNode;table?:SmartTable};
 export type ReportOption={value:string;label:string;needs?:('attendance'|'salaries'|'period'|'rawpunches')[];table?:string;build:(ctx:ReportContext)=>ReportPage[];excel?:(ctx:ReportContext)=>XlCell[][];action?:(ctx:ReportContext)=>Promise<void>;note?:string;withEmployees?:boolean;hidden?:boolean;sheetName?:string};
 // attendanceSource: the report can use the original's separate muster register (default) or the daily attendance.
 // confirm: a Yes / No question asked before Generate (the original's "Please Check Proper Address"); No stops.
 // periodLabels: captions of the From / To boxes of a 'range' screen (the original's "Date Select" / "To Date").
-export type ReportConfig={attendanceSource?:boolean;period:'month'|'month-days'|'date'|'range'|'none';filters:FilterKey[];paymentMode?:boolean;resignMode?:boolean;sex?:boolean;withLeft?:boolean;otExtraSpace?:boolean;advSheet?:boolean;options:ReportOption[];columns?:number;defaultPaymentMode?:string;extraButtons?:{label:string;option:string}[];choices?:{label:string;values:{value:string;label:string}[]};note?:string;fields?:ReportField[];confirm?:string;periodLabels?:{from:string;to:string};noAddress?:boolean;noSort?:boolean;noPrintDate?:boolean;multi?:boolean};
+// quick: (a 'date' screen) the Report tab gets a bar with the previous / next day, the date and the reports of the screen, so the day or the report can be changed without going back to the selection.
+export type ReportConfig={quick?:boolean;attendanceSource?:boolean;period:'month'|'month-days'|'date'|'range'|'none';filters:FilterKey[];paymentMode?:boolean;resignMode?:boolean;sex?:boolean;withLeft?:boolean;otExtraSpace?:boolean;advSheet?:boolean;options:ReportOption[];columns?:number;defaultPaymentMode?:string;extraButtons?:{label:string;option:string}[];choices?:{label:string;values:{value:string;label:string}[]};note?:string;fields?:ReportField[];confirm?:string;periodLabels?:{from:string;to:string};noAddress?:boolean;noSort?:boolean;noPrintDate?:boolean;multi?:boolean};
 
 const filterDefs:Record<FilterKey,{label:string;table:string;by:'name'|'code';get:(e:Employee,x?:Extra)=>string}>={
  company:{label:'Company Name',table:'tbcmp',by:'code',get:()=>''},subCompany:{label:'Sub Company Name',table:'tbsubcmp',by:'name',get:e=>e.subCompany},location:{label:'Location Name',table:'tblocation',by:'name',get:e=>e.location},
@@ -40,6 +44,7 @@ const filterDefs:Record<FilterKey,{label:string;table:string;by:'name'|'code';ge
 };
 const listTables=['tbcmp','tbsubcmp','tblocation','tbdephead','tbdep','tbdes','tbcat','tbsalg','tblvgrade','tbshift','tbbank','tbpfmast','tbesimast','tbempsal'];
 const numeric=(a:string,b:string)=>a.localeCompare(b,undefined,{numeric:true});
+const shiftDay=(date:string,by:number)=>{const d=new Date(date+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+by);return d.toISOString().slice(0,10);};
 
 function combineLists(results:{data?:{rows:MasterRow[]}}[]):Lists{const out:Lists={};listTables.forEach((table,k)=>{const def=masterDef(table)!;out[table]=(results[k]?.data?.rows||[]).map(r=>({code:trimCell(r.values[def.key[0]]),name:def.nameCol?trimCell(r.values[def.nameCol]):'',values:r.values})).sort((a,b)=>numeric(a.code,b.code));});return out;}
 // pending: Generate and the extra buttons wait for the lists, since reports read them (e.g. Employee salary settings) when built.
@@ -87,7 +92,8 @@ export function ReportForm({dataset,employees,title,config,companyName,onClose}:
  const isChecked=(id:string)=>allChecked?!exceptions.has(id):exceptions.has(id);
  const shown=useMemo(()=>{const q=search.trim().toLowerCase();return q?base.filter(e=>[e.name,e.paycode,e.cardNo].join(' ').toLowerCase().includes(q)):base;},[base,search]);
  function toggle(id:string){setExceptions(prev=>{const next=new Set(prev);if(next.has(id))next.delete(id);else next.add(id);return next;});}
- async function generate(optionValue=option){
+ async function generate(optionValue=option,dateOverride?:string){
+  const day=dateOverride??date;
   // A multi screen (Personal File forms) prints every ticked report one after the other.
   const multiRun=!!config.multi&&optionValue===option;
   const opts=multiRun?config.options.filter(o=>picked.includes(o.value)):[config.options.find(o=>o.value===optionValue)||selectedOption];
@@ -100,7 +106,7 @@ export function ReportForm({dataset,employees,title,config,companyName,onClose}:
    const pad2=(n:number)=>String(n).padStart(2,'0');const lastDay=new Date(Date.UTC(Number(month.slice(0,4)),Number(month.slice(5,7)),0)).getUTCDate();
    const rangeFrom=config.period==='month-days'?`${month}-${pad2(Math.max(1,dayFrom))}`:from,rangeTo=config.period==='month-days'?`${month}-${pad2(Math.min(dayTo,lastDay))}`:to;
    const run=async(opt:ReportOption)=>{const needs=new Set(opt.needs||[]);const fetch=<T,>(key:unknown[],url:string)=>client.fetchQuery({queryKey:key,queryFn:({signal})=>requestJson<T>(url,{signal}),staleTime:30000});
-   const monthOf=config.period==='date'?date.slice(0,7):month;
+   const monthOf=config.period==='date'?day.slice(0,7):month;
    const [att,sal,rows]=await Promise.all([
     needs.has('attendance')?(useRegister?fetch<{attendance:AttendanceMonth[]}>(['register',dataset,monthOf],'/api/register?'+new URLSearchParams({month:monthOf,dataset})):fetch<{attendance:AttendanceMonth[]}>(['report','attendance',dataset,monthOf],'/api/records?'+new URLSearchParams({month:monthOf,dataset,punches:'1'}))):null,
     needs.has('salaries')?fetch<{salaries:SalarySnapshot[]}>(['backup','salaries',dataset,monthOf],'/api/backup?'+new URLSearchParams({view:'salaries',dataset,month:monthOf})):null,
@@ -118,14 +124,14 @@ export function ReportForm({dataset,employees,title,config,companyName,onClose}:
     catch(e){rawPunchNote=(e as Error).message;}}
    const cmp=lists.tbcmp?.[0];const loc=(filters.location||[]).length===1?lists.tblocation?.find(l=>l.code===filters.location![0]):undefined;
    const address=addressPrint==='none'?'':addressPrint==='location'&&loc?trimCell(loc.values.loc_add1):[trimCell(cmp?.values.cmp_add1),trimCell(cmp?.values.cmp_add2)].filter(Boolean).join(', ');
-   const context:ReportContext={dataset,company:{name:trimCell(cmp?.values.cmp_name)||companyName,address,values:cmp?.values||{}},month:monthOf,dayFrom,dayTo,from:rangeFrom,to:rangeTo,date,printDate:printDateShow&&!config.noPrintDate?printDate:'',employees:chosen,extras,
+   const context:ReportContext={dataset,company:{name:trimCell(cmp?.values.cmp_name)||companyName,address,values:cmp?.values||{}},month:monthOf,dayFrom,dayTo,from:rangeFrom,to:rangeTo,date:day,printDate:printDateShow&&!config.noPrintDate?printDate:'',employees:chosen,extras,
     attendance:new Map((att?.attendance||[]).map(a=>[a.employeeId,a])),salaries:new Map((sal?.salaries||[]).map(s=>[s.employeeId,s])),period,rows:rows?.rows||[],lists,rawPunches,rawPunchNote,options:{groupByDept,otExtraSpace:otExtra,salaryWithOt,advValue:adv,addressPrint,choice,fields:fieldValues}};return context;};
    const built:{o:ReportOption;context:ReportContext}[]=[];for(const o of opts)built.push({o,context:await run(o)});
    if(opt.action){await opt.action(built[0].context);return;}
    for(const {o,context} of built)if(o.needs?.includes('rawpunches')&&context.rawPunchNote)toast.warning(`The machine punches could not be read (${context.rawPunchNote}) – the punches saved in Time Updation are printed instead.`);
    // Personal File forms: every page knows its document (file) and its employee; the pages go employee by employee, each employee's documents together.
    const made=built.flatMap(({o,context})=>o.build(context).map(p=>{const q=built.length>1?{...p,key:o.value+':'+p.key}:p;return config.multi?{...q,file:o.label}:q;}));
-   setCtx(built[0].context);setPages(config.multi?orderByOwner(made):made);setOption(opt.value);if(tab==='sel')setGen(g=>g+1);setTab('rep');
+   setCtx(built[0].context);setPages(config.multi?orderByOwner(made):made);setOption(opt.value);if(dateOverride)setDate(dateOverride);if(tab==='sel')setGen(g=>g+1);setTab('rep');
   }catch(e){setError((e as Error).message);}finally{setBusy(false);}
  }
  async function excel(){if(!ctx||!selectedOption.excel)return;await exportExcel(`${title.replace(/[^A-Za-z0-9]+/g,'_')}_${ctx.month}.xlsx`,[{name:(selectedOption.sheetName||selectedOption.label).slice(0,31),rows:selectedOption.excel(ctx)}]);toast.success('Excel file created');}
@@ -173,7 +179,18 @@ export function ReportForm({dataset,employees,title,config,companyName,onClose}:
    </div>
   </div>}
   {/* The viewer stays mounted behind the Selecion tab, so going back to the Report finds the same page; a new Generate starts it afresh. */}
-  {ctx&&<div hidden={tab!=='rep'}><Viewer key={gen} active={tab==='rep'} title={title} pages={pages} onRefresh={()=>generate(option)} onExcel={selectedOption.excel&&!(config.multi&&picked.length>1)?excel:undefined}/></div>}
+  {ctx&&<div hidden={tab!=='rep'}>
+   {config.quick&&config.period==='date'&&<div className="rpt-quick no-print" role="group" aria-label="Day and report">
+    <button type="button" title="Previous day" aria-label="Previous day" disabled={busy} onClick={()=>void generate(option,shiftDay(ctx.date,-1))}><ChevronLeft size={16}/></button>
+    <input type="date" aria-label="Report date" value={ctx.date} disabled={busy} onChange={e=>{if(e.target.value)void generate(option,e.target.value);}}/>
+    <span className="rpt-quick-day">{new Date(ctx.date+'T12:00:00').toLocaleDateString('en-IN',{weekday:'long'})}</span>
+    <button type="button" title="Next day" aria-label="Next day" disabled={busy} onClick={()=>void generate(option,shiftDay(ctx.date,1))}><ChevronRight size={16}/></button>
+    <button type="button" className="rpt-quick-today" disabled={busy} onClick={()=>void generate(option,new Date().toISOString().slice(0,10))}>Today</button>
+    <span className="rpt-sep"/>
+    <div className="rpt-quick-reports" role="tablist" aria-label="Report">{config.options.filter(o=>!o.hidden).map(o=><button key={o.value} type="button" role="tab" aria-selected={option===o.value} className={option===o.value?'is-on':''} disabled={busy} onClick={()=>void generate(o.value)}>{o.label}</button>)}</div>
+    {busy&&<span className="rpt-quick-busy">Loading …</span>}
+    {error&&<span className="rpt-quick-err">{error}</span>}</div>}
+   <Viewer key={gen} active={tab==='rep'} title={title} pages={pages} onRefresh={()=>generate(option)} onExcel={selectedOption.excel&&!(config.multi&&picked.length>1)?excel:undefined}/></div>}
   <Dialog open={asking!==null} onOpenChange={v=>{if(!v)setAsking(null);}}><DialogContent className="rpt-dialog"><DialogHeader><DialogTitle>{title}</DialogTitle><DialogDescription>{config.confirm}</DialogDescription></DialogHeader>
    <div className="rpt-dialog-actions"><Button onClick={()=>{const v=asking!;setAsking(null);void generate(v);}}>Yes</Button><Button variant="outline" onClick={()=>setAsking(null)}>No</Button></div></DialogContent></Dialog>
  </div>;

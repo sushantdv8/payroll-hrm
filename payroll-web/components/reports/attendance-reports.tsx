@@ -3,7 +3,10 @@ import type {Employee} from '@/lib/payroll';
 import {exportExcel,requestJson} from '@/lib/client-api';
 import {dMonY,dmy,monthLabel} from '@/lib/report-utils';
 import {trimCell,type MasterRow} from '@/lib/masters';
+import {classifyDay,worstTone,type DayKind,type Tone} from '@/lib/smart-report';
 import type {ReportConfig,ReportContext,ReportOption,ReportPage} from './report-form';
+import type {SmartSpec} from './smart-table';
+import {DailyDetail} from './daily-detail';
 import {EmployeeCell,Header,LEAVE,chunk,dayMark,extraOf,halves,hhmm,listName,markCounts,minutes,monthDaysOf,n2,nz,tablePages} from './report-parts';
 import type {ReactNode} from 'react';
 
@@ -88,12 +91,30 @@ function monthlyRegister(ctx:ReportContext):ReportPage[]{
 
 // Time Attendence > Daily Reports
 type DailyRow={e:Employee;shift:string;in:string;out:string;first:string;second:string;work:string;late:string;ot:string};
-function dailyRows(ctx:ReportContext,kind:string):DailyRow[]{const day=Number(ctx.date.slice(8,10));return ctx.employees.map(e=>{const d=ctx.attendance.get(e.id)?.days.find(x=>x.day===day);return {e,shift:d?.shift||'',in:d?.manualIn||d?.machineIn||'',out:d?.manualOut||d?.machineOut||'',first:d?.first||'',second:d?.second||'',work:d?.workHours||'',late:d?.late||d?.sourceLateHours||'',ot:d?.ot||''};})
+const dayRow=(ctx:ReportContext,e:Employee,day:number):DailyRow=>{const d=ctx.attendance.get(e.id)?.days.find(x=>x.day===day);return {e,shift:d?.shift||'',in:d?.manualIn||d?.machineIn||'',out:d?.manualOut||d?.machineOut||'',first:d?.first||'',second:d?.second||'',work:d?.workHours||'',late:d?.late||d?.sourceLateHours||'',ot:d?.ot||''};};
+function dailyRows(ctx:ReportContext,kind:string):DailyRow[]{const day=Number(ctx.date.slice(8,10));return ctx.employees.map(e=>dayRow(ctx,e,day))
  .filter(r=>kind==='all'||(kind==='present'?['P','OD'].includes(r.first)||['P','OD'].includes(r.second):kind==='absent'?r.first==='A'||r.second==='A':kind==='late'?minutes(r.late)>0:true));}
-const dailyOption=(value:string,label:string):ReportOption=>({value,label,needs:['attendance'],build:ctx=>tablePages(ctx,{key:'d'+value,title:label,subtitle:`Date : ${dmy(ctx.date)}`,perPage:30,
- columns:[{h:'Sno',cls:'c'},{h:'Paycode'},{h:'Card No.'},{h:'Employee Name'},{h:'Department'},{h:'Shift',cls:'c'},{h:'In',cls:'c'},{h:'Out',cls:'c'},{h:'1st',cls:'c'},{h:'2nd',cls:'c'},{h:'Work Hrs',cls:'c'},{h:'Late Hrs',cls:'c'},{h:'OT Hrs',cls:'c'}],
- rows:dailyRows(ctx,value).map((r,i)=>[i+1,r.e.paycode,r.e.cardNo,r.e.name,r.e.department,r.shift,r.in,r.out,r.first,r.second,r.work,r.late,r.ot])}),
- excel:ctx=>[['Sno','Paycode','Card No.','Employee Name','Department','Shift','In','Out','1st','2nd','Work Hrs','Late Hrs','OT Hrs'],...dailyRows(ctx,value).map((r,i)=>[i+1,r.e.paycode,r.e.cardNo,r.e.name,r.e.department,r.shift,r.in,r.out,r.first,r.second,r.work,r.late,r.ot])]});
+const DAILY_COLUMNS=[{h:'Sno',cls:'c'},{h:'Paycode'},{h:'Card No.'},{h:'Employee Name'},{h:'Department'},{h:'Shift',cls:'c'},{h:'In',cls:'c'},{h:'Out',cls:'c'},{h:'1st',cls:'c'},{h:'2nd',cls:'c'},{h:'Work Hrs',cls:'c'},{h:'Late Hrs',cls:'c'},{h:'OT Hrs',cls:'c'}];
+const DAILY_HEAD=['Sno','Paycode','Card No.','Employee Name','Department','Shift','In','Out','1st','2nd','Work Hrs','Late Hrs','OT Hrs'];
+const dailyCells=(r:DailyRow,i:number)=>[i+1,r.e.paycode,r.e.cardNo,r.e.name,r.e.department,r.shift,r.in,r.out,r.first,r.second,r.work,r.late,r.ot];
+// The smart view of the daily reports lists every employee of the day with a status, a colour and quick filters (Present / Absent / Late / Mispunch …),
+// each with the same count of the day before; a click on a row opens that employee's day and month.
+type DayFlags={kind:DayKind;label:string;tone:Tone|'';present:boolean;absent:boolean;late:boolean;mis:boolean;leave:boolean;off:boolean;ot:boolean};
+function dayFlags(r:DailyRow):DayFlags{const c=classifyDay(r.first,r.second,!!(r.in||r.out));const has=(codes:string[])=>codes.includes(r.first)||codes.includes(r.second);
+ return {kind:c.kind,label:c.label,tone:c.tone,present:has(['P','OD']),absent:has(['A','LWP']),late:minutes(r.late)>0,mis:!!r.in!==!!r.out||has(['MS']),leave:has(LEAVE),off:r.first==='WO'||r.first==='HD'||r.second==='WO'||r.second==='HD',ot:minutes(r.ot)>0};}
+const DAILY_CHIPS:{id:string;label:string;tone:Tone;pred:(f:DayFlags)=>boolean}[]=[
+ {id:'present',label:'Present',tone:'ok',pred:f=>f.present},{id:'absent',label:'Absent',tone:'bad',pred:f=>f.absent},{id:'late',label:'Late',tone:'warn',pred:f=>f.late},{id:'mispunch',label:'Mispunch',tone:'warn',pred:f=>f.mis},
+ {id:'leave',label:'On leave',tone:'info',pred:f=>f.leave},{id:'off',label:'Off day',tone:'mute',pred:f=>f.off},{id:'ot',label:'Overtime',tone:'info',pred:f=>f.ot},{id:'none',label:'No entry',tone:'mute',pred:f=>f.kind==='none'}];
+function dailySmart(ctx:ReportContext,kind:string,all:DailyRow[],day:number):SmartSpec{
+ const flags=all.map(dayFlags);const before=day>1?ctx.employees.map(e=>dayFlags(dayRow(ctx,e,day-1))):null;
+ return {pref:'daily',defaultView:true,groupBy:4,sums:[10,11,12],initialChip:['present','absent','late'].includes(kind)?kind:'all',chipLabel:'yesterday',
+  chips:DAILY_CHIPS.map(c=>({id:c.id,label:c.label,tone:c.tone,test:i=>c.pred(flags[i]),before:before?before.filter(c.pred).length:undefined})),
+  status:flags.map(f=>[f.label,f.late?'Late':'',f.mis&&f.kind!=='mispunch'?'Mispunch':''].filter(Boolean).join(' · ')),
+  tone:flags.map(f=>worstTone(f.tone,f.late?'warn':'',f.mis?'warn':'')),
+  detail:i=><DailyDetail ctx={ctx} e={all[i].e} day={day}/>,detailTitle:i=>all[i].e.name};}
+const dailyOption=(value:string,label:string):ReportOption=>({value,label,needs:['attendance'],build:ctx=>{const day=Number(ctx.date.slice(8,10));const printed=dailyRows(ctx,value);const all=value==='all'?printed:ctx.employees.map(e=>dayRow(ctx,e,day));
+  return tablePages(ctx,{key:'d'+value,title:label,subtitle:`Date : ${dmy(ctx.date)}`,perPage:30,columns:DAILY_COLUMNS,rows:printed.map(dailyCells),smart:dailySmart(ctx,value,all,day),smartRows:value==='all'?undefined:all.map(dailyCells)});},
+ excel:ctx=>[DAILY_HEAD,...dailyRows(ctx,value).map(dailyCells)]});
 // Daily Reports > Multi Punch Report: every punch of each employee and day (Card No. / Name / Date / Description), grouped by department.
 // One line per employee and calendar day that has punches, all the punches of the day as "HH:MM,HH:MM," – the machines' own
 // punches (Biometric Attendance app) when they could be read, else the punches saved in Time Updation. Departments in
@@ -134,7 +155,7 @@ function multiPunchPages(ctx:ReportContext):ReportPage[]{
    <thead><tr><th>Card No.</th><th>Name</th><th>Date</th><th className="mp-desc"><span>Description</span><span className="mp-page">Page {p+1} of {parts.length}</span></th></tr></thead>
    <tbody>{part.map((l,i)=>'dep' in l?<tr key={i}><td/><td className="mp-dep">{l.dep}</td><td/><td/></tr>:<tr key={i}><td>{l.card}</td><td>{l.name}</td><td>{l.date}</td><td className="mp-text">{l.text}</td></tr>)}</tbody></table></div>};});
 }
-export const dailyConfig:ReportConfig={period:'date',filters:[...ALL_FILTERS],sex:true,withLeft:true,fields:[{key:'mpFrom',label:'Punch From',kind:'date',place:'left',default:''},{key:'mpTo',label:'Punch To',kind:'date',place:'left',default:''}],options:[dailyOption('all','Daily Attendance'),dailyOption('present','Present Report'),dailyOption('absent','Absent Report'),dailyOption('late','Late Arrival Report'),{value:'multipunch',label:'Multi Punch Report',needs:['attendance','rawpunches'],note:'Prints every punch of each day exactly as the machines recorded it, for the month of the selected Date (read from the Biometric Attendance app; if it is not running, the punches saved in Time Updation are printed). Leave Punch From / Punch To blank for the whole month, or set them to print only those days.',build:multiPunchPages,excel:ctx=>[['Card No.','Name','Date','Description'],...multiPunchRows(ctx).rows.map(r=>[r.e.cardNo||r.e.paycode,r.e.name,r.date,r.text])]}]};
+export const dailyConfig:ReportConfig={quick:true,period:'date',filters:[...ALL_FILTERS],sex:true,withLeft:true,fields:[{key:'mpFrom',label:'Punch From',kind:'date',place:'left',default:''},{key:'mpTo',label:'Punch To',kind:'date',place:'left',default:''}],options:[dailyOption('all','Daily Attendance'),dailyOption('present','Present Report'),dailyOption('absent','Absent Report'),dailyOption('late','Late Arrival Report'),{value:'multipunch',label:'Multi Punch Report',needs:['attendance','rawpunches'],note:'Prints every punch of each day exactly as the machines recorded it, for the month of the selected Date (read from the Biometric Attendance app; if it is not running, the punches saved in Time Updation are printed). Leave Punch From / Punch To blank for the whole month, or set them to print only those days.',build:multiPunchPages,excel:ctx=>[['Card No.','Name','Date','Description'],...multiPunchRows(ctx).rows.map(r=>[r.e.cardNo||r.e.paycode,r.e.name,r.date,r.text])]}]};
 
 // Time Attendence > Periodically Reports
 type PeriodRow={e:Employee;c:Record<string,number>;late:number;ot:number;work:number};

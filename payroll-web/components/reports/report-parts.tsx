@@ -2,6 +2,7 @@ import type {ReactNode} from 'react';
 import type {AttendanceDay,AttendanceMonth,Employee} from '@/lib/payroll';
 import {dmy,type Extra} from '@/lib/report-utils';
 import type {ReportContext,ReportOwner,ReportPage} from './report-form';
+import type {SmartSpec,SmartTable} from './smart-table';
 
 export const chunk=<T,>(items:T[],size:number)=>{const out:T[][]=[];for(let i=0;i<items.length;i+=size)out.push(items.slice(i,i+size));return out;};
 // Imported employees are keyed by their original code, employees added in this app by their id (as /api/employee-extras returns them).
@@ -18,14 +19,22 @@ export function Header({ctx,title,subtitle,page,pages,left,right}:{ctx:ReportCon
 
 export type Column={h:ReactNode;cls?:string;w?:string};
 // Splits a table into pages with the report header repeated, like the original's paged report viewer.
-export function tablePages(ctx:ReportContext,{key,title,subtitle,columns,rows,perPage,orientation='landscape',tree,footer,totals,group}:{key:string;title:string;subtitle?:string;columns:Column[];rows:ReactNode[][];perPage:number;orientation?:'landscape'|'portrait';tree?:(pageRows:number[])=>string;footer?:ReactNode;totals?:ReactNode[];group?:(number|null)[]}):ReportPage[]{
- const indexes=rows.map((_,i)=>i);const parts=chunk(indexes,perPage);if(!parts.length)parts.push([]);
- return parts.map((part,p)=>({key:`${key}-${p}`,orientation,tree:tree?tree(part):`Page ${p+1}`,node:<>
-  <Header ctx={ctx} title={title} subtitle={subtitle} page={p+1} pages={parts.length}/>
-  <table><thead><tr>{columns.map((c,i)=><th key={i} className={c.cls} style={c.w?{width:c.w}:undefined}>{c.h}</th>)}</tr></thead>
-   <tbody>{part.map(i=><tr key={i} className={group?.[i]!=null?'rpt-group-row':''}>{rows[i].map((cell,j)=><td key={j} className={columns[j]?.cls}>{cell}</td>)}</tr>)}
-    {p===parts.length-1&&totals&&<tr>{totals.map((cell,j)=><td key={j} className={columns[j]?.cls}><b>{cell}</b></td>)}</tr>}</tbody></table>
-  {p===parts.length-1&&footer}</>}));
+// Every page also carries the table itself (page.table): the viewer's smart view shows it as a table that can be searched, sorted, filtered, grouped and exported.
+// smart: what the report knows about its rows (colours, status, quick filters, detail panel); false: no smart view; smartRows: the smart view lists these rows instead (more than the printed ones - smart.* then count them).
+export function tablePages(ctx:ReportContext,{key,title,subtitle,columns,rows,perPage,orientation='landscape',tree,footer,totals,group,smart,smartRows}:{key:string;title:string;subtitle?:string;columns:Column[];rows:ReactNode[][];perPage:number;orientation?:'landscape'|'portrait';tree?:(pageRows:number[])=>string;footer?:ReactNode;totals?:ReactNode[];group?:(number|null)[];smart?:SmartSpec|false;smartRows?:ReactNode[][]}):ReportPage[]{
+ const build=(list:ReactNode[][],tail=true,k=key,note=''):ReportPage[]=>{
+  const indexes=list.map((_,i)=>i);const parts=chunk(indexes,perPage);if(!parts.length)parts.push([]);
+  return parts.map((part,p)=>({key:`${k}-${p}`,orientation,tree:tail&&tree?tree(part):`Page ${p+1}`,node:<>
+   <Header ctx={ctx} title={title} subtitle={[subtitle,note].filter(Boolean).join(' · ')||undefined} page={p+1} pages={parts.length}/>
+   <table><thead><tr>{columns.map((c,i)=><th key={i} className={c.cls} style={c.w?{width:c.w}:undefined}>{c.h}</th>)}</tr></thead>
+    <tbody>{part.map(i=><tr key={i} className={tail&&group?.[i]!=null?'rpt-group-row':''}>{list[i].map((cell,j)=><td key={j} className={columns[j]?.cls}>{cell}</td>)}</tr>)}
+     {tail&&p===parts.length-1&&totals&&<tr>{totals.map((cell,j)=><td key={j} className={columns[j]?.cls}><b>{cell}</b></td>)}</tr>}</tbody></table>
+   {tail&&p===parts.length-1&&footer}</>}));};
+ const pages=build(rows);
+ if(smart===false||group)return pages;   // a table with group rows inside is not a flat list of records
+ const table:SmartTable={key,title,subtitle,fileName:`${title.replace(/[^A-Za-z0-9]+/g,'_')}_${ctx.date||ctx.from||ctx.month||''}`.replace(/_$/,''),columns,rows:smartRows||rows,smart:smart||undefined,
+  pagesFor:(list,note)=>build(list,false,key+'-v',note)};   // printing the rows on screen: no totals row, no footer note - they belong to the whole report
+ return pages.map(p=>({...p,table}));
 }
 
 export function EmployeeCell({ctx,e}:{ctx:ReportContext;e:Employee}){const x=extraOf(ctx,e);
