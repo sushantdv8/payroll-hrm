@@ -53,6 +53,8 @@ SetEnv PAYROLL_DATA_DIR /home/<user>/payroll-data
 5. The data (below) into `~/payroll-data/pg`.
 6. Restart: `touch app/tmp/restart.txt` is slow to act; stop the process instead, LiteSpeed starts it again with the next request: `pkill -TERM -u $USER -f "lsnode:/home/<user>/domains/<site>/app"`. The app's log: `app/console.log` and `app/stderr.log`.
 
+**Updating later.** `git archive --format=zip -o payroll-app.zip HEAD:payroll-web`, copy the zip to the server (`scp -P 65002 payroll-app.zip <user>@<server>:`), then there: `bash ~/domains/<site>/app/deploy/hostinger/update-app.sh ~/domains/<site> ~/payroll-app.zip`. The script builds the new version beside the running one (about a minute), swaps it in only if the build worked (the old one stays as `app.prev`), restarts, and puts the old one back if the new one does not report "application is ready". The data folder is not touched; everybody is signed out by the restart. A GitHub push does not update the server by itself.
+
 ## The data
 
 The database folder lives outside the folder that every deploy replaces (`~/payroll-data/pg`, `~` = the web app's home). To fill it from the Windows edition:
