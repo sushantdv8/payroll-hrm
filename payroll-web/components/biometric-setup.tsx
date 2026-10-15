@@ -7,7 +7,7 @@ import {toast} from 'sonner';
 import type {Employee} from '@/lib/payroll';
 import {requestJson} from '@/lib/client-api';
 import {monthLabel,realResignDate} from '@/lib/report-utils';
-import {DEFAULT_BIO_URL,matchAll,type BioMap,type BioSettings,type BioState,type BioUser,type Match} from '@/lib/biometric';
+import {DEFAULT_BIO_URL,matchAll,type BioLinkTurnedAway,type BioMap,type BioSettings,type BioState,type BioUser,type Match} from '@/lib/biometric';
 import {useCanOpen} from './access-context';
 
 // Utilities › Biometric Machine Setup: where the punches come from (the Biometric Attendance app), which machines
@@ -18,6 +18,8 @@ type Filter='all'|'none'|'auto'|'manual'|'ignored';
 const post=<T,>(body:object)=>requestJson<T>('/api/biometric',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 const when=(v:string|null|undefined)=>v?v.replace('T',' ').slice(0,16):'—';
 const ago=(s:number|null|undefined)=>{if(s==null)return 'never';return s<90?`${s} seconds ago`:s<5400?`${Math.round(s/60)} minutes ago`:`${Math.round(s/3600)} hours ago`;};
+// a Server Link reached this server but its key was refused: say so, it is the usual first mistake at the office
+const turnedAwayText=(t:BioLinkTurnedAway)=>`${t.agent?`A Server Link (${t.agent})`:'A call'} from ${t.ip||'an unknown address'} reached this server ${ago(t.secondsAgo)}, but the key it sent was refused (${t.keyLength} characters; a key made by this server has 43). If that is the office computer, start its Server Link again with the key of this server: Start Server Link.cmd --key <key>.`;
 const HOW:Record<Match['how'],string>={manual:'Chosen',ignored:'Not an employee',card:'Card No.',paycode:'Paycode',none:'Not matched'};
 
 export function BiometricSetup({dataset,employees,title,onOpen}:{dataset:string;employees:Employee[];title:string;onOpen?:(screen:string)=>boolean}){
@@ -55,10 +57,11 @@ export function BiometricSetup({dataset,employees,title,onOpen}:{dataset:string;
   <div className="bio-body">
    {link?<fieldset className="to-fieldset bio-connect"><legend>Office link</legend>
     <p className={'bio-msg '+(link.online?'is-ok':'is-bad')} role="status">{link.online?`Connected to the office computer${link.agent?` (${link.agent})`:''} - last contact ${ago(link.secondsAgo)}.`:'The office computer is not connected.'}</p>
+    {!link.online&&link.turnedAway&&link.turnedAway.keyLength>0&&<p className="bio-msg is-bad" role="status">{turnedAwayText(link.turnedAway)}</p>}
     <button type="button" className="to-btn" disabled={!!busy} onClick={()=>void refresh()}>Check again</button>
     {configDirty&&<button type="button" className="to-btn is-primary" disabled={!!busy} onClick={()=>void saveConfig()}>Save</button>}
     {settings&&configDirty&&<button type="button" className="to-btn" disabled={!!busy} onClick={()=>{setUrl(null);setDevices(null);setTest(null);}}>Cancel</button>}
-    <p className="to-note">The machines are in the office, so this server cannot reach them. The Biometric Attendance app runs on a computer there and its <b>Server Link</b> connects to this server (it only makes outgoing calls); the machine list, Download and the punches all go through it. {link.online?'':'On the office computer start "Start Server Link" and keep its window open - this screen turns green by itself.'}</p>
+    <p className="to-note">The machines are in the office, so this server cannot reach them. The Biometric Attendance app runs on a computer there and its <b>Server Link</b> connects to this server (it only makes outgoing calls); the machine list, Download and the punches all go through it. {link.online?'':'On the office computer start "Start Server Link" and keep its window open - this screen turns green by itself. If it is already running and this stays red, its window says why (or run: Start Server Link.cmd --test).'}</p>
    </fieldset>
    :<fieldset className="to-fieldset bio-connect"><legend>Biometric Attendance app</legend>
     <label className="bio-url">Address<input className="to-input" value={shownUrl} onChange={e=>{setUrl(e.target.value);setTest(null);}} spellCheck={false} placeholder={DEFAULT_BIO_URL}/></label>

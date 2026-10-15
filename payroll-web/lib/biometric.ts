@@ -13,7 +13,8 @@ export type BioMap=Record<string,string>;
 export type BioHistoryEntry={at:string;month:string;from:number;to:number;employees:number;days:number;unmatched:number;calculated:boolean};
 // link: on a server that has no Biometric Attendance app of its own the app is reached through the office link (a Server Link on the office computer calls the server);
 // the settings then carry its state and the address is not used.
-export type BioLinkState={enabled:boolean;online:boolean;lastSeen:number|null;secondsAgo:number|null;agent:string;waiting?:number};   // secondsAgo is counted on the server: the clock of the browser is not trusted
+export type BioLinkTurnedAway={secondsAgo:number;ip:string;agent:string;keyLength:number};   // a call of the link whose key was refused (after the last good call)
+export type BioLinkState={enabled:boolean;online:boolean;lastSeen:number|null;secondsAgo:number|null;agent:string;waiting?:number;turnedAway?:BioLinkTurnedAway|null};   // secondsAgo is counted on the server: the clock of the browser is not trusted
 export type BioSettings={config:BioConfig;map:BioMap;history:BioHistoryEntry[];revisions:{config:number;map:number};link?:BioLinkState};
 export const RELAY_URL='http://relay.local';
 export type BioDevice={id:number;name:string;ip:string;port:number;status:string;message:string|null;syncedAt:string|null;checkedAt:string|null;storedLogs:number;lastPunch:string|null;storedUsers:number;busy:string|null;sameNetwork:boolean};

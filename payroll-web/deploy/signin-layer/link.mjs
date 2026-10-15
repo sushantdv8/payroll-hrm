@@ -63,7 +63,7 @@ export function createLink({key,log=()=>{},limiter,ipBucket,now=Date.now,pollMs=
  if(!/^[A-Za-z0-9_-]{32,128}$/.test(key||''))throw new Error('BIOMETRIC_LINK_KEY must be 32 to 128 characters (letters, digits, - and _).');
  const secret=crypto.randomBytes(32),keyMac=crypto.createHmac('sha256',secret).update(key).digest();
  const keyOk=v=>crypto.timingSafeEqual(crypto.createHmac('sha256',secret).update(String(v)).digest(),keyMac);   // equal length whatever was sent
- const queue=[],byId=new Map();let waiter=null,lastSeen=0,agent='',who='',lastLogged=0;const wrongLogged=new Map();
+ const queue=[],byId=new Map();let waiter=null,lastSeen=0,agent='',who='',lastLogged=0,refused=null;const wrongLogged=new Map();   // refused: the last call that was turned away {at, ip, agent, keyLength}
  const online=()=>lastSeen>0&&now()-lastSeen<=onlineMs;
  const send=(res,code,body,extra={})=>{if(res.headersSent)return;res.writeHead(code,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...extra});res.end(code===204?undefined:JSON.stringify(body));};
  // an unwanted request is answered and its connection closed: its body is not worth reading
@@ -87,7 +87,9 @@ export function createLink({key,log=()=>{},limiter,ipBucket,now=Date.now,pollMs=
    if(waiter){const w=waiter;waiter=null;clearTimeout(w.timer);deliver(w.res,item);}
   });
  }
- const status=()=>({enabled:true,online:online(),lastSeen:lastSeen||null,agent,waiting:queue.filter(i=>!i.claimed).length});
+ // turnedAway: a call that was refused after the last good call (a good call clears it), within the last hour - so the screen can say "a Server Link tried, but its key is wrong"
+ const status=()=>{const t=now(),r=refused&&t-refused.at<3600000?refused:null;
+  return {enabled:true,online:online(),lastSeen:lastSeen||null,agent,waiting:queue.filter(i=>!i.claimed).length,turnedAway:r?{secondsAgo:Math.max(0,Math.round((t-r.at)/1000)),ip:r.ip,agent:r.agent,keyLength:r.keyLength}:null};};
 
  // ---- the office computer's side ----
  const readBody=(req,limit,ms=120000)=>new Promise((resolve,reject)=>{
@@ -98,11 +100,17 @@ export function createLink({key,log=()=>{},limiter,ipBucket,now=Date.now,pollMs=
   req.on('end',()=>{clearTimeout(timer);resolve(Buffer.concat(parts));});req.on('error',()=>{clearTimeout(timer);fail(400,'Invalid request.');});req.on('close',()=>clearTimeout(timer));
  });
  const gunzip=buf=>new Promise((resolve,reject)=>zlib.gunzip(buf,{maxOutputLength:maxOut},(e,out)=>e?reject(Object.assign(new Error('Invalid request.'),{status:400})):resolve(out)));
- const wrong=(ip)=>{const t=now(),last=wrongLogged.get(ip)||0;if(t-last>60000){wrongLogged.set(ip,t);if(wrongLogged.size>1000)wrongLogged.clear();log(`office link: a call with a wrong key from ${ip||'an unknown address'}`);}};
+ const agentName=req=>String(req.headers['x-link-agent']||'').replace(/[^A-Za-z0-9 ._/()-]/g,'').slice(0,60);
+ // a call that is turned away: remembered (the screen shows it) and logged at most once a minute per address - with the name the Server Link gave itself and the length of the key it sent (never the key)
+ const turnedAway=(req,ip,keyLength)=>{
+  const t=now(),name=agentName(req);refused={at:t,ip:ip||'',agent:name,keyLength};
+  const last=wrongLogged.get(ip)||0;
+  if(t-last>60000){wrongLogged.set(ip,t);if(wrongLogged.size>1000)wrongLogged.clear();log(`office link: a call from ${ip||'an unknown address'}${name?` (${name})`:''} was turned away: ${keyLength?`a wrong key (${keyLength} characters)`:'no key'}`);}
+ };
  // a successful call: who is the office computer (a copy of the key used from another address shows up in the log)
  const seen=(req,ip)=>{
-  const t=now(),gap=lastSeen?t-lastSeen:Infinity;lastSeen=t;
-  agent=String(req.headers['x-link-agent']||'').replace(/[^A-Za-z0-9 ._/()-]/g,'').slice(0,60)||agent;
+  const t=now(),gap=lastSeen?t-lastSeen:Infinity;lastSeen=t;refused=null;
+  agent=agentName(req)||agent;
   const here=`${ip||'an unknown address'}${agent?` (${agent})`:''}`;
   if((here!==who||gap>onlineMs)&&t-lastLogged>5000){log(who&&here!==who?`office link: now connected from ${here} - before: ${who}`:`office link: ${gap>onlineMs&&who?'back':'connected'} from ${here}`);lastLogged=t;}
   who=here;
@@ -138,9 +146,9 @@ export function createLink({key,log=()=>{},limiter,ipBucket,now=Date.now,pollMs=
    const bucket=ipBucket(ip);
    const auth=/^Bearer ([A-Za-z0-9_-]{1,200})$/.exec(String(req.headers.authorization||''));
    if(!auth||!keyOk(auth[1])){
-    const locked=limiter.checkIp(bucket);
-    if(locked)return refuse(req,res,429,{error:'Too many attempts.'},{'Retry-After':String(locked)});
-    limiter.fail(bucket,bucket+'|link');wrong(ip);return refuse(req,res,401,{error:'Not allowed.'});
+    const locked=limiter.checkIp(bucket),length=auth?auth[1].length:0;
+    if(locked){turnedAway(req,ip,length);return refuse(req,res,429,{error:'Too many attempts.'},{'Retry-After':String(locked)});}
+    limiter.fail(bucket,bucket+'|link');turnedAway(req,ip,length);return refuse(req,res,401,{error:'Not allowed.'});
    }
    limiter.ok(bucket+'|link');
    seen(req,ip);

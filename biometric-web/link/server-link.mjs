@@ -7,6 +7,7 @@
 //   node --no-warnings server-link.mjs                      start (the first time it asks for the server address and the key)
 //   node --no-warnings server-link.mjs --server https://hrm.example.com --key <key>     save these and start
 //   node --no-warnings server-link.mjs --status             show the saved settings (the key is not shown)
+//   node --no-warnings server-link.mjs --test               ask the server once whether it is reachable and accepts the key (nothing is saved)
 //   node --no-warnings server-link.mjs --install-startup    start it by itself when this Windows user signs in (--remove-startup undoes it)
 //   --app http://127.0.0.1:5180  the local Biometric Attendance app (default)      --data <folder>  where server-link.json is kept      --quiet  no output
 //
@@ -67,10 +68,26 @@ async function readCapped(r,limit){
  return Buffer.concat(chunks).toString('utf8');
 }
 
+const agentHeader=()=>`Server Link ${VERSION} on ${os.hostname()}`.replace(/[^A-Za-z0-9 ._/()-]/g,'').slice(0,60);
+const refusedKey=key=>`The server refused the key (the one given has ${key.length} characters; a key made by the server has 43).`;
+const startAgain='Close this window and start again with the key of the server:  Start Server Link.cmd --key <the key>';
+// Asks the server once - GET /__link/hello - whether it is reachable and accepts the key. {ok, kind: 'key' | 'wait' | 'off' | 'status' | 'network', message}
+export async function checkKey({server,key,fetchImpl=fetch,timeoutMs=20000}){
+ try{
+  const r=await fetchImpl(`${server}/__link/hello`,{headers:{Authorization:`Bearer ${key}`,'X-Link-Agent':agentHeader()},redirect:'error',signal:AbortSignal.timeout(timeoutMs)});
+  await drain(r);
+  if(r.ok)return {ok:true,kind:'ok',message:'The server accepted the key.'};
+  if(r.status===401)return {ok:false,kind:'key',message:refusedKey(key)};
+  if(r.status===429)return {ok:false,kind:'wait',message:'The server asks to wait (too many wrong keys came from this address). Try again in a few minutes.'};
+  if(r.status===404)return {ok:false,kind:'off',message:'The server does not have the office link switched on (BIOMETRIC_LINK_KEY is not set there).'};
+  return {ok:false,kind:'status',message:`The server answered ${r.status}.`};
+ }catch(e){return {ok:false,kind:'network',message:`Cannot reach ${server} (${clean(reason(e))}). Check the internet connection of this computer, and the server address.`};}
+}
+
 // ---- the link: one long poll after the other; each request is carried out at once (several may run at the same time: a download takes minutes) ----
 export function startLink({server,key,app='http://127.0.0.1:5180',log=console.log,fetchImpl=fetch,pollTimeoutMs=40000,minPollMs=1000,minRetryMs=2000,maxRetryMs=60000,maxParallel=6,beatMs=15000}){
  const ctl=new AbortController();const state={connected:false,lastOk:0,lastError:'',stopped:false,handled:0};
- const headers={Authorization:`Bearer ${key}`,'X-Link-Agent':`Server Link ${VERSION} on ${os.hostname()}`.replace(/[^A-Za-z0-9 ._/()-]/g,'').slice(0,60)};
+ const headers={Authorization:`Bearer ${key}`,'X-Link-Agent':agentHeader()};
  let running=0,retry=minRetryMs,wasConnected=false,quick=0,lastBeat=0;
  const backoff=()=>{retry=Math.min(maxRetryMs,retry*2);return retry;};
  const note=(ok,message='')=>{
@@ -121,7 +138,7 @@ export function startLink({server,key,app='http://127.0.0.1:5180',log=console.lo
      if(took<minPollMs)await sleep(minPollMs-took,ctl.signal);   // a poll that came back at once (two links with one key) must not spin
      continue;
     }
-    if(r.status===401){await drain(r);note(false,'The server refused the key. Check the key (it must be the BIOMETRIC_LINK_KEY of the server) and start again.');await sleep(backoff(),ctl.signal);continue;}
+    if(r.status===401){await drain(r);note(false,`${refusedKey(key)} ${startAgain}`);await sleep(backoff(),ctl.signal);continue;}
     if(r.status===429){await drain(r);note(false,'The server asks to wait (too many wrong keys from this address).');await sleep(backoff(),ctl.signal);continue;}
     if(r.status===404){await drain(r);note(false,'The server does not have the office link switched on (BIOMETRIC_LINK_KEY is not set there).');await sleep(backoff(),ctl.signal);continue;}
     if(!r.ok){await drain(r);note(false,`The server answered ${r.status}.`);await sleep(backoff(),ctl.signal);continue;}
@@ -190,6 +207,23 @@ async function main(){
   console.log('Server Link connects the Biometric Attendance app of this computer to your Payroll Workspace server.\n');
   while(!server){server=cleanServer(await ask('Server address (for example https://hrm.example.com): '));if(!server)console.log('That does not look like an address. Use https://... with no path.');}
   while(!key){key=cleanKey(await askHidden('Link key (the BIOMETRIC_LINK_KEY of the server - paste it here, nothing is shown): '));if(!key)console.log('That is not a link key (32 to 128 letters, digits, - and _).');}
+ }
+ // --test: only asks the server whether it accepts the key (nothing is saved, nothing keeps running)
+ if(has('test')){
+  const c=await checkKey({server,key});
+  console.log(c.ok?`OK: ${server} accepts the key (${key.length} characters).`:c.message+(c.kind==='key'?'\n'+startAgain:''));
+  process.exitCode=c.ok?0:1;return;
+ }
+ // The key is tried once before the long-running part: a wrong key is the usual first mistake, so it is better to hear it now and type the key again.
+ if(!quiet&&process.stdin.isTTY){
+  for(let attempt=1;;attempt++){
+   const c=await checkKey({server,key});
+   console.log(c.message);
+   if(c.ok||c.kind!=='key'||attempt>=3)break;                 // accepted; or not a key problem (the link below keeps trying and says what it sees); or enough tries
+   const again=cleanKey(await askHidden('Type or paste the key again (nothing is shown; just Enter goes on with this one): '));
+   if(!again)break;
+   key=again;
+  }
  }
  if(server!==s.server||key!==s.key||(appArg!==undefined&&app!==s.app)){saveSettings(data,{...s,server,key,...(appArg!==undefined?{app}:{})});console.log(`Saved in ${fileOf(data)}`);}
  const logFile=path.join(data,'server-link.log');

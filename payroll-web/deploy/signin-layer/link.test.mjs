@@ -7,8 +7,13 @@ import net from 'node:net';
 import zlib from 'node:zlib';
 import {createLink,allowedRequest,relayFetch,LinkError} from './link.mjs';
 import {createLayer,hashPassword,makeLimiter,ipBucket} from './server.mjs';
-import {allowedRequest as agentAllowed,startLink,cleanServer,cleanKey,cleanApp,parseArgs,askHidden} from '../../../biometric-web/link/server-link.mjs';
+import {allowedRequest as agentAllowed,startLink,checkKey,cleanServer,cleanKey,cleanApp,parseArgs,askHidden} from '../../../biometric-web/link/server-link.mjs';
 import {EventEmitter} from 'node:events';
+import {execFile} from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
 
 const KEY='A1b2C3d4'.repeat(6),H={Authorization:'Bearer '+KEY};
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -202,6 +207,25 @@ test('the log says who the office computer is, and shows a return or another add
  }finally{await r.close();}
 });
 
+test('a call that is turned away is remembered for the screen (who, from where, how long a key) until a good call comes; the key itself is never logged',async()=>{
+ const logs=[];const r=await rig({log:m=>logs.push(m)});
+ try{
+  assert.equal(r.link.status().turnedAway,null);
+  const sent='x'.repeat(42);
+  await fetch(r.base+'/__link/hello',{headers:{Authorization:'Bearer '+sent,'X-Link-Agent':'Server Link 1.1 on OFFICE-PC','X-Test-Ip':'203.0.113.7'}});
+  const t=r.link.status().turnedAway;assert.deepEqual({ip:t.ip,agent:t.agent,keyLength:t.keyLength,secondsAgo:t.secondsAgo},{ip:'203.0.113.7',agent:'Server Link 1.1 on OFFICE-PC',keyLength:42,secondsAgo:0});
+  assert.ok(logs.some(l=>/a call from 203\.0\.113\.7 \(Server Link 1\.1 on OFFICE-PC\) was turned away: a wrong key \(42 characters\)/.test(l)),JSON.stringify(logs));
+  assert.ok(!logs.some(l=>l.includes(sent)),'the key that was sent is not logged');
+  await fetch(r.base+'/__link/hello');assert.equal(r.link.status().turnedAway.keyLength,0,'no key at all is remembered as length 0');assert.ok(logs.some(l=>/a call from 10\.0\.0\.1 was turned away: no key/.test(l)));
+  r.clock.t+=3600001;assert.equal(r.link.status().turnedAway,null,'after an hour it is forgotten');
+  await fetch(r.base+'/__link/hello',{headers:{Authorization:'Bearer '+'y'.repeat(30)}});assert.ok(r.link.status().turnedAway);
+  await fetch(r.base+'/__link/hello',{headers:H});assert.equal(r.link.status().turnedAway,null,'a good call clears it');
+  // a locked address (many wrong keys) is still remembered, so the screen shows the latest try
+  for(let i=0;i<40;i++)await fetch(r.base+'/__link/hello',{headers:{Authorization:'Bearer wrong-'+i+'z'.repeat(20)}});
+  assert.ok(r.link.status().turnedAway&&r.link.status().turnedAway.secondsAgo===0);
+ }finally{await r.close();}
+});
+
 test('a poll with no work answers 204 after a while; a newer poll takes over from an older one',async()=>{
  const r=await rig();
  try{
@@ -369,6 +393,25 @@ test('two Server Links with one key: the one that keeps being taken over says so
  const agent=startLink({server:base,key:KEY,app:'http://127.0.0.1:1',log:m=>logs.push(m),pollTimeoutMs:1000,minPollMs:30});
  try{assert.ok(await until(()=>logs.some(l=>/Another Server Link/.test(l)),3000));await sleep(300);assert.equal(logs.filter(l=>/Another Server Link/.test(l)).length,1);}
  finally{agent.stop();await closeServer(quiet);}
+});
+test('the Server Link can ask the server once (reachable? key accepted?) and says in words what is wrong; --test does it from the command line',async()=>{
+ const r=await rig({pollMs:200});
+ try{
+  assert.deepEqual(await checkKey({server:r.base,key:KEY}),{ok:true,kind:'ok',message:'The server accepted the key.'});
+  const bad=await checkKey({server:r.base,key:'Z9y8X7w6'.repeat(6)});assert.equal(bad.kind,'key');assert.match(bad.message,/refused the key \(the one given has 48 characters; a key made by the server has 43\)/);
+  const gone=await checkKey({server:'http://127.0.0.1:1',key:KEY,timeoutMs:3000});assert.equal(gone.kind,'network');assert.match(gone.message,/Cannot reach http:\/\/127\.0\.0\.1:1 \(/);
+  const redir=http.createServer((req,res)=>{res.writeHead(302,{Location:'http://127.0.0.1:1/x'});res.end();});const rb=await listen(redir);
+  try{const c=await checkKey({server:rb,key:KEY});assert.equal(c.kind,'network');assert.match(c.message,/unexpected redirect/,'a redirect is not followed');}finally{await closeServer(redir);}
+  for(const [code,kind] of [[429,'wait'],[404,'off'],[503,'status']]){const s=http.createServer((req,res)=>{res.writeHead(code);res.end();});const b=await listen(s);try{assert.equal((await checkKey({server:b,key:KEY})).kind,kind,String(code));}finally{await closeServer(s);}}
+  // the command line: --test needs nothing saved, keeps nothing running and sets the exit code
+  const script=path.join(path.dirname(fileURLToPath(import.meta.url)),'..','..','..','biometric-web','link','server-link.mjs'),data=fs.mkdtempSync(path.join(os.tmpdir(),'sl-test-'));
+  const run=args=>new Promise(resolve=>execFile(process.execPath,['--no-warnings',script,'--test','--data',data,...args],{timeout:30000},(err,stdout,stderr)=>resolve({code:err?err.code:0,out:stdout+stderr})));
+  try{
+   const ok=await run(['--server',r.base,'--key',KEY]);assert.equal(ok.code,0,ok.out);assert.match(ok.out,/^OK: http:\/\/127\.0\.0\.1:\d+ accepts the key \(48 characters\)\./);
+   const no=await run(['--server',r.base,'--key','Z9y8X7w6'.repeat(6)]);assert.equal(no.code,1);assert.match(no.out,/refused the key/);assert.match(no.out,/Start Server Link\.cmd --key <the key>/);
+   assert.deepEqual(fs.readdirSync(data),[],'--test saves nothing');
+  }finally{fs.rmSync(data,{recursive:true,force:true});}
+ }finally{await r.close();}
 });
 test('the command line: a value is the next word whatever it starts with; the key prompt shows nothing and understands backspace and paste',async()=>{
  const a=parseArgs(['--server','https://hrm.example.com','--key','--abcDEF','--quiet']);

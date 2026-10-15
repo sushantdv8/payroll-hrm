@@ -40,10 +40,13 @@ const linked=()=>env.PAYROLL_BIO_LINK==='1';
 // A hosted server (the single-process edition) that has no office link cannot reach any Biometric Attendance app, and must not be told to call addresses that people type in.
 const hostedWithoutLink=()=>env.PAYROLL_HOSTED==='1'&&!linked();
 const NO_MACHINES='This server has no Biometric Attendance app and the office link is not switched on, so the machines cannot be reached. Set up the office link (docs/BIOMETRIC-LINK.md).';
+const str=(v:unknown)=>typeof v==='string'?v.slice(0,300):'',strOrNull=(v:unknown)=>typeof v==='string'?v.slice(0,300):null,num=(v:unknown)=>Number.isFinite(Number(v))?Number(v):0;
 async function linkState():Promise<BioLinkState>{
  try{const r=await fetch(RELAY_URL+'/__status',{signal:AbortSignal.timeout(5000)});const j=await r.json() as Partial<BioLinkState>;const seen=typeof j.lastSeen==='number'?j.lastSeen:null;
-  return {enabled:true,online:!!j.online,lastSeen:seen,secondsAgo:seen===null?null:Math.max(0,Math.round((Date.now()-seen)/1000)),agent:String(j.agent||''),waiting:Number(j.waiting)||0};}
- catch{return {enabled:true,online:false,lastSeen:null,secondsAgo:null,agent:''};}
+  const t=j.turnedAway&&typeof j.turnedAway==='object'?j.turnedAway:null;   // a Server Link tried with a key that was refused (shown so the person at the office can be told)
+  return {enabled:true,online:!!j.online,lastSeen:seen,secondsAgo:seen===null?null:Math.max(0,Math.round((Date.now()-seen)/1000)),agent:String(j.agent||''),waiting:Number(j.waiting)||0,
+   turnedAway:t?{secondsAgo:num(t.secondsAgo),ip:str(t.ip).slice(0,60),agent:str(t.agent).slice(0,60),keyLength:num(t.keyLength)}:null};}
+ catch{return {enabled:true,online:false,lastSeen:null,secondsAgo:null,agent:'',turnedAway:null};}
 }
 // Calls the Biometric Attendance app. Its own error text is passed on; "not running" or "something else answers at
 // that address" get clear messages.
@@ -59,7 +62,6 @@ async function app<T>(base:string,path:string,init?:RequestInit&{timeout?:number
  try{return await r.json() as T;}catch{throw notApp;}
 }
 // Only the fields the screen shows are passed on (the app's own answer also holds each machine's Comm Key and the network cards of its computer), each of the expected type.
-const str=(v:unknown)=>typeof v==='string'?v.slice(0,300):'',strOrNull=(v:unknown)=>typeof v==='string'?v.slice(0,300):null,num=(v:unknown)=>Number.isFinite(Number(v))?Number(v):0;
 const cleanState=(s:BioState):BioState=>({
  devices:s.devices.slice(0,200).map(d=>({id:num(d.id),name:str(d.name),ip:str(d.ip),port:num(d.port),status:str(d.status),message:strOrNull(d.message),syncedAt:strOrNull(d.syncedAt),checkedAt:strOrNull(d.checkedAt),storedLogs:num(d.storedLogs),lastPunch:strOrNull(d.lastPunch),storedUsers:num(d.storedUsers),busy:strOrNull(d.busy),sameNetwork:!!d.sameNetwork})),
  autoMinutes:num(s.autoMinutes),totals:{logs:num(s.totals.logs),people:num(s.totals.people),first:strOrNull(s.totals.first),last:strOrNull(s.totals.last)}});
