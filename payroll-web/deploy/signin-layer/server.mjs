@@ -19,6 +19,7 @@ import crypto from 'node:crypto';
 import http from 'node:http';
 import net from 'node:net';
 import {pathToFileURL} from 'node:url';
+import {createLink} from './link.mjs';
 
 const USER={id:'local_seedy',email:'admin@payroll.local',name:'Admin'};   // the owner (tenant) of every record - not a person
 const SUPER='admin01';
@@ -54,9 +55,13 @@ export function readConfig(env=process.env){
  if(upstream.protocol!=='http:')throw new Error('UPSTREAM must be an http:// address (the application, on this server) or unix:<socket path>.');
  const adminHash=env.ADMIN_PASSWORD_HASH||'';
  if(!/^scrypt\$/.test(adminHash))throw new Error('ADMIN_PASSWORD_HASH is missing. Create it with:  node make-admin-hash.mjs --write-to /etc/payroll/layer.env');
+ // BIOMETRIC_LINK_KEY (optional): switches the office link on (link.mjs); the Server Link on the office computer needs the same key
+ // A key of the wrong shape switches the link off and says so in the log; it does not stop the sign-in layer (payroll must stay reachable because of a typo in an optional setting).
+ let linkKey=env.BIOMETRIC_LINK_KEY||'',linkProblem='';
+ if(linkKey&&!/^[A-Za-z0-9_-]{32,128}$/.test(linkKey)){linkProblem='BIOMETRIC_LINK_KEY must be 32 to 128 characters (letters, digits, - and _). Make one with: node make-link-key.mjs --write-to <settings file>';linkKey='';}
  const num=(name,def,min,max)=>{const v=env[name]===undefined||env[name]===''?def:Number(env[name]);if(!Number.isFinite(v)||v<min||v>max)throw new Error(`${name} must be a number from ${min} to ${max}.`);return v;};
  return {
-  host:env.HOST||'127.0.0.1',port:num('PORT',8080,1,65535),upstream,upstreamSocket:unixSocket?unixSocket[1]:'',publicOrigin,adminHash,internalKey:env.PAYROLL_INTERNAL_KEY||'',
+  host:env.HOST||'127.0.0.1',port:num('PORT',8080,1,65535),upstream,upstreamSocket:unixSocket?unixSocket[1]:'',publicOrigin,adminHash,internalKey:env.PAYROLL_INTERNAL_KEY||'',linkKey,linkProblem,
   cookieSecure:env.COOKIE_SECURE!==undefined&&env.COOKIE_SECURE!==''?env.COOKIE_SECURE!=='0':publicOrigin.startsWith('https:'),
   idleMs:num('IDLE_MINUTES',120,1,1440)*60000,absoluteMs:num('ABSOLUTE_HOURS',12,1,72)*3600000,chooseMs:15*60000,
   trustProxy:env.TRUST_PROXY!=='0',maxSessions:num('MAX_SESSIONS',500,10,5000),
@@ -154,6 +159,9 @@ export function createLayer(cfg,log=m=>console.log(m)){
  const upstreamOrigin=cfg.upstream.origin,cookieName=(cfg.cookieSecure?'__Host-':'')+'pw_sid',https=cfg.publicOrigin.startsWith('https:');
  const sessions=new Map(),limiter=makeLimiter(),agent=new http.Agent({keepAlive:true,maxSockets:128,keepAliveMsecs:30000});
  const publicHost=new URL(cfg.publicOrigin).host;
+ // the office link (link.mjs): its own limiter, so wrong keys never lock a sign-in
+ const link=cfg.linkKey?createLink({key:cfg.linkKey,log:m=>log(m),limiter:makeLimiter({maxEntries:2000}),ipBucket}):null;
+ if(cfg.linkProblem)log('office link is NOT switched on: '+cfg.linkProblem);
  // the expensive part of a sign-in: admin01 (scrypt, CPU and 32 MiB each) and the other logins (a call to the application) wait in separate lines, so a flood of guesses at one cannot block the other
  const lines={admin:semaphore(3,16,8000),named:semaphore(8,64,8000)},busyByIp=new Map();
  const budgets={ok:{start:0,n:0,max:300},fail:{start:0,n:0,max:30}},failReported=new Map();
@@ -358,6 +366,7 @@ export function createLayer(cfg,log=m=>console.log(m)){
   const path=url.pathname,ip=clientIp(req);
   if(path==='/__ping'){res.writeHead(200,{'Content-Type':'text/plain','Cache-Control':'no-store'});res.end('ok');return;}
   if(path==='/__login'&&req.method==='POST'){run(res,()=>login(req,res,ip));return;}
+  if(path.startsWith('/__link/')){if(!link)return json(res,404,{error:'Not found.'});link.route(req,res,url,ip);return;}   // the Server Link of the office: its own key, no cookie
   if(path==='/signin-with-chatgpt'){res.writeHead(302,{Location:'/','Cache-Control':'no-store'});res.end();return;}
   if(path==='/signout-with-chatgpt'){signOut(req,res);return;}
   const s=getSession(req);
@@ -384,7 +393,7 @@ export function createLayer(cfg,log=m=>console.log(m)){
  server.headersTimeout=30000;server.keepAliveTimeout=65000;server.requestTimeout=0;
  server.on('clientError',(e,socket)=>{if(socket.writable)socket.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n');});
  const sweeper=setInterval(()=>{const t=Date.now();for(const [k,s] of sessions)if(t-s.created>cfg.absoluteMs||t-s.last>cfg.idleMs||(s.state==='choose'&&t-s.created>cfg.chooseMs))sessions.delete(k);for(const [k,v] of failReported)if(t-v>60000)failReported.delete(k);limiter.sweep();},60000);sweeper.unref();
- return {server,sessions,limiter,logError,close:()=>new Promise(resolve=>{clearInterval(sweeper);agent.destroy();server.close(()=>resolve());server.closeAllConnections?.();})};
+ return {server,sessions,limiter,link,logError,close:()=>new Promise(resolve=>{clearInterval(sweeper);link?.close();agent.destroy();server.close(()=>resolve());server.closeAllConnections?.();})};
 }
 
 // ---- run ----

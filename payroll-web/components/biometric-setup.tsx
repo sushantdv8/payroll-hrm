@@ -1,7 +1,7 @@
 'use client';
 import './time-office.css';
 import './biometric.css';
-import {useMemo,useState} from 'react';
+import {useEffect,useMemo,useState} from 'react';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {toast} from 'sonner';
 import type {Employee} from '@/lib/payroll';
@@ -17,20 +17,23 @@ type Tab='machines'|'match'|'history';
 type Filter='all'|'none'|'auto'|'manual'|'ignored';
 const post=<T,>(body:object)=>requestJson<T>('/api/biometric',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 const when=(v:string|null|undefined)=>v?v.replace('T',' ').slice(0,16):'—';
+const ago=(s:number|null|undefined)=>{if(s==null)return 'never';return s<90?`${s} seconds ago`:s<5400?`${Math.round(s/60)} minutes ago`:`${Math.round(s/3600)} hours ago`;};
 const HOW:Record<Match['how'],string>={manual:'Chosen',ignored:'Not an employee',card:'Card No.',paycode:'Paycode',none:'Not matched'};
 
 export function BiometricSetup({dataset,employees,title,onOpen}:{dataset:string;employees:Employee[];title:string;onOpen?:(screen:string)=>boolean}){
  const client=useQueryClient();const canOpen=useCanOpen();
- const settingsQ=useQuery({queryKey:['biometric',dataset,'settings'],queryFn:({signal})=>requestJson<BioSettings>('/api/biometric?'+new URLSearchParams({dataset,view:'settings'}),{signal})});
+ const settingsQ=useQuery({queryKey:['biometric',dataset,'settings'],queryFn:({signal})=>requestJson<BioSettings>('/api/biometric?'+new URLSearchParams({dataset,view:'settings'}),{signal}),refetchInterval:q=>{const l=q.state.data?.link;return l?(l.online?15000:10000):false;}});
  const stateQ=useQuery({queryKey:['biometric',dataset,'state'],queryFn:({signal})=>requestJson<BioState&{url:string}>('/api/biometric?'+new URLSearchParams({dataset,view:'state'}),{signal}),enabled:settingsQ.isSuccess,retry:false});
  const [tab,setTab]=useState<Tab>('machines');
  const [url,setUrl]=useState<string|null>(null);const [devices,setDevices]=useState<number[]|null>(null);const [busy,setBusy]=useState('');
  const [test,setTest]=useState<{ok:boolean;text:string}|null>(null);
- const settings=settingsQ.data;const shownUrl=url??settings?.config.url??DEFAULT_BIO_URL;const chosen=devices??settings?.config.devices??[];
+ const settings=settingsQ.data;const link=settings?.link;const shownUrl=url??settings?.config.url??DEFAULT_BIO_URL;const chosen=devices??settings?.config.devices??[];
  const byNum=(a:number,b:number)=>a-b;
  const configDirty=!!settings&&(shownUrl!==settings.config.url||JSON.stringify([...chosen].sort(byNum))!==JSON.stringify([...settings.config.devices].sort(byNum)));
 
  async function refresh(){await client.invalidateQueries({queryKey:['biometric',dataset]});}
+ // the office computer connects after the screen was opened: the machine list is read again
+ useEffect(()=>{if(link?.online&&stateQ.isError)void stateQ.refetch();},[link?.online]);   // eslint-disable-line react-hooks/exhaustive-deps
  async function saveConfig(){if(!settings)return;setBusy('save');
   try{await post({action:'save-config',dataset,revision:settings.revisions.config,config:{url:shownUrl,devices:chosen}});setUrl(null);setDevices(null);await refresh();toast.success('Biometric settings saved');}
   catch(e){toast.error((e as Error).message);}finally{setBusy('');}}
@@ -38,7 +41,7 @@ export function BiometricSetup({dataset,employees,title,onOpen}:{dataset:string;
   try{const s=await requestJson<BioState>('/api/biometric?'+new URLSearchParams({dataset,view:'state',url:shownUrl}));setTest({ok:true,text:`Connected: ${s.devices.length} machines, ${s.totals.logs.toLocaleString('en-IN')} punches saved (${when(s.totals.first)} to ${when(s.totals.last)}).`});}
   catch(e){setTest({ok:false,text:(e as Error).message});}finally{setBusy('');}}
  async function download(ids:number[]){if(!ids.length){toast.error('No machine to download.');return;}setBusy('download');const done:string[]=[];const failed:string[]=[];
-  for(const id of ids){const d=stateQ.data?.devices.find(x=>x.id===id);try{const r=await post<{logs:number;newLogs:number}>({action:'download',dataset,deviceId:id});done.push(`${d?.name}: ${r.newLogs} new of ${r.logs}`);}catch(e){failed.push((e as Error).message);}}
+  for(const id of ids){const d=stateQ.data?.devices.find(x=>x.id===id);try{const r=await post<{logs:number;newLogs:number;pending?:boolean}>({action:'download',dataset,deviceId:id});done.push(r.pending?`${d?.name}: still downloading at the office - press Refresh in a minute`:`${d?.name}: ${r.newLogs} new of ${r.logs}`);}catch(e){failed.push((e as Error).message);}}
   setBusy('');await client.invalidateQueries({queryKey:['biometric',dataset,'state']});
   if(done.length)toast.success('Downloaded. '+done.join('; '));if(failed.length)toast.error(failed.join(' '));}
  async function setAuto(minutes:number){setBusy('auto');try{await post({action:'auto',dataset,minutes});await client.invalidateQueries({queryKey:['biometric',dataset,'state']});toast.success(minutes?`The app now downloads every ${minutes} minutes while it is open.`:'Auto download is off.');}catch(e){toast.error((e as Error).message);}finally{setBusy('');}}
@@ -50,7 +53,14 @@ export function BiometricSetup({dataset,employees,title,onOpen}:{dataset:string;
  return <div className="to-window bio-window">
   <div className="to-titlebar"><strong>{title}</strong>{busy&&<span className="to-status" role="status">Please wait…</span>}</div>
   <div className="bio-body">
-   <fieldset className="to-fieldset bio-connect"><legend>Biometric Attendance app</legend>
+   {link?<fieldset className="to-fieldset bio-connect"><legend>Office link</legend>
+    <p className={'bio-msg '+(link.online?'is-ok':'is-bad')} role="status">{link.online?`Connected to the office computer${link.agent?` (${link.agent})`:''} - last contact ${ago(link.secondsAgo)}.`:'The office computer is not connected.'}</p>
+    <button type="button" className="to-btn" disabled={!!busy} onClick={()=>void refresh()}>Check again</button>
+    {configDirty&&<button type="button" className="to-btn is-primary" disabled={!!busy} onClick={()=>void saveConfig()}>Save</button>}
+    {settings&&configDirty&&<button type="button" className="to-btn" disabled={!!busy} onClick={()=>{setUrl(null);setDevices(null);setTest(null);}}>Cancel</button>}
+    <p className="to-note">The machines are in the office, so this server cannot reach them. The Biometric Attendance app runs on a computer there and its <b>Server Link</b> connects to this server (it only makes outgoing calls); the machine list, Download and the punches all go through it. {link.online?'':'On the office computer start "Start Server Link" and keep its window open - this screen turns green by itself.'}</p>
+   </fieldset>
+   :<fieldset className="to-fieldset bio-connect"><legend>Biometric Attendance app</legend>
     <label className="bio-url">Address<input className="to-input" value={shownUrl} onChange={e=>{setUrl(e.target.value);setTest(null);}} spellCheck={false} placeholder={DEFAULT_BIO_URL}/></label>
     <button type="button" className="to-btn" disabled={!!busy} onClick={()=>void testUrl()}>Test</button>
     <button type="button" className="to-btn is-primary" disabled={!!busy||!configDirty} onClick={()=>void saveConfig()}>Save</button>
@@ -58,7 +68,7 @@ export function BiometricSetup({dataset,employees,title,onOpen}:{dataset:string;
     <a className="to-btn bio-link" href={shownUrl} target="_blank" rel="noreferrer">Open the app</a>
     {test&&<p className={'bio-msg '+(test.ok?'is-ok':'is-bad')} role="status">{test.text}</p>}
     <p className="to-note">The Biometric Attendance app (installed with BiometricAttendance_Setup) downloads the machines and keeps every punch. Start it on the computer that is on the machines&apos; network; this screen reads it from there. Use http://127.0.0.1:5180 when it runs on this computer.</p>
-   </fieldset>
+   </fieldset>}
    <div className="bio-tabs" role="tablist">{([['machines','Machines'],['match','Employee Match'],['history','Fetch History']] as const).map(([v,l])=><button key={v} type="button" role="tab" aria-selected={tab===v} className={tab===v?'is-active':''} onClick={()=>setTab(v)}>{l}</button>)}
     {onOpen&&canOpen('transaction/time')&&<button type="button" className="to-btn bio-go" onClick={()=>onOpen('transaction/time')}>Go to Time Updation</button>}</div>
    {settingsQ.error&&<p className="bio-msg is-bad">{settingsQ.error.message}</p>}
@@ -68,7 +78,7 @@ export function BiometricSetup({dataset,employees,title,onOpen}:{dataset:string;
     {state&&<>
      <div className="to-row bio-bar">
       <button type="button" className="to-btn is-primary" disabled={!!busy||!toDownload.length} onClick={()=>void download(toDownload)}>{busy==='download'?'Downloading…':chosen.length?'Download this company’s machines':'Download all machines'}</button>
-      <button type="button" className="to-btn" disabled={!!busy} onClick={()=>void stateQ.refetch()}>Refresh</button>
+      <button type="button" className="to-btn" disabled={!!busy} onClick={()=>void (link?refresh():stateQ.refetch())}>Refresh</button>
       <label>Auto download<select className="to-input" value={state.autoMinutes} disabled={!!busy} onChange={e=>void setAuto(Number(e.target.value))}>{[[0,'Off'],[15,'Every 15 min'],[30,'Every 30 min'],[60,'Every hour'],[120,'Every 2 hours']].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
       <span className="to-note">{state.totals.logs.toLocaleString('en-IN')} punches saved in the app · last {when(state.totals.last)}</span>
      </div>
@@ -79,7 +89,7 @@ export function BiometricSetup({dataset,employees,title,onOpen}:{dataset:string;
        <td className={d.status==='online'?'bio-ok':d.status==='error'?'bio-bad':''} title={d.message||''}>{d.busy?`Busy (${d.busy})`:d.status==='online'?'Online':d.status==='error'?'Not connected':'Not checked'}{d.status==='error'&&d.message&&<div className="bio-small">{d.message}</div>}</td>
        <td className="num">{d.storedLogs.toLocaleString('en-IN')}</td><td>{when(d.lastPunch)}</td><td>{when(d.syncedAt)}</td>
        <td><button type="button" className="to-btn" disabled={!!busy||!!d.busy} onClick={()=>void download([d.id])}>Download</button></td></tr>)}</tbody></table></div>
-     <p className="to-note">{chosen.length?`Only the ticked machines (${chosenNames.join(', ')||'none found'}) are used for this company.`:'No machine is ticked, so the punches of every machine are used. Tick the machines of this company if other companies use the other machines.'} Press Save after changing the ticks. Machines are added or edited in the app itself.</p>
+     <p className="to-note">{chosen.length?`Only the ticked machines (${chosenNames.join(', ')||'none found'}) are used for this company.`:'No machine is ticked, so the punches of every machine are used. Tick the machines of this company if other companies use the other machines.'} Press Save after changing the ticks. Machines are added or edited in the Biometric Attendance app{link?' on the office computer':' itself'}.</p>
     </>}
    </section>}
    {tab==='match'&&settings&&<MatchPane dataset={dataset} employees={employees} settings={settings} onSaved={refresh}/>}

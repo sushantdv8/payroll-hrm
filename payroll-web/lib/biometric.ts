@@ -11,7 +11,11 @@ export type BioConfig={url:string;devices:number[]};
 // Machine user ID -> employee id ('-' = not an employee, never matched).
 export type BioMap=Record<string,string>;
 export type BioHistoryEntry={at:string;month:string;from:number;to:number;employees:number;days:number;unmatched:number;calculated:boolean};
-export type BioSettings={config:BioConfig;map:BioMap;history:BioHistoryEntry[];revisions:{config:number;map:number}};
+// link: on a server that has no Biometric Attendance app of its own the app is reached through the office link (a Server Link on the office computer calls the server);
+// the settings then carry its state and the address is not used.
+export type BioLinkState={enabled:boolean;online:boolean;lastSeen:number|null;secondsAgo:number|null;agent:string;waiting?:number};   // secondsAgo is counted on the server: the clock of the browser is not trusted
+export type BioSettings={config:BioConfig;map:BioMap;history:BioHistoryEntry[];revisions:{config:number;map:number};link?:BioLinkState};
+export const RELAY_URL='http://relay.local';
 export type BioDevice={id:number;name:string;ip:string;port:number;status:string;message:string|null;syncedAt:string|null;checkedAt:string|null;storedLogs:number;lastPunch:string|null;storedUsers:number;busy:string|null;sameNetwork:boolean};
 export type BioState={devices:BioDevice[];autoMinutes:number;totals:{logs:number;people:number;first:string|null;last:string|null}};
 // Machine users seen in the punches of the last two months (the app's own user list is too slow to read on a big database).

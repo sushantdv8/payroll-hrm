@@ -14,6 +14,11 @@
 //     PAYROLL_DATA_DIR      where the database lives (default: ~/payroll-data)
 //     PAYROLL_ENV_FILE      a settings file with KEY=VALUE lines (default: <PAYROLL_DATA_DIR>/app.env); real environment variables win over it.
 //                           For a hosting where the variables cannot be kept in a panel: the file can be made private (chmod 600) and holds the same names.
+//     BIOMETRIC_LINK_KEY    (optional) switches the office link on: the secret that the Server Link of the office computer sends with every call. The machines and the
+//                           Biometric Attendance app are in the office, so Biometric Machine Setup / Biometric Fetch reach them through that computer. Make it with
+//                           deploy/signin-layer/make-link-key.mjs. The application's fetch of http://relay.local is routed to the link (signin-layer/link.mjs).
+//     PAYROLL_HOSTED        default 1: this is a hosting, there is no Biometric Attendance app next to the server, so without the office link the machine screens say so
+//                           instead of calling addresses that people type in. 0 only for a test that wants the Windows-style address box.
 //     PORT                  only for a test outside the hosting (the hosting ignores it)
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -71,6 +76,12 @@ env.PAYROLL_INTERNAL_KEY = cfg.internalKey;
 const layer = createLayer(cfg, m => log('layer: ' + m));
 await listenOn(layer.server, cfg.port);
 log(`sign-in layer is listening for ${cfg.publicOrigin}`);
+// The office link (BIOMETRIC_LINK_KEY): the Biometric Attendance app and the machines are in the office, not here. The application asks that app with
+// fetch('http://relay.local/...'); the layer queues the request for the Server Link of the office computer and brings back its answer (signin-layer/link.mjs).
+env.PAYROLL_BIO_LINK = layer.link ? '1' : '';
+if (!('PAYROLL_HOSTED' in env)) env.PAYROLL_HOSTED = '1';   // a hosting has no Biometric Attendance app next to it: without the link the machine screens say so instead of calling typed-in addresses
+if (layer.link) log('office link is switched on (the Server Link of the office computer connects with BIOMETRIC_LINK_KEY)');
+const {relayFetch} = await import('../signin-layer/link.mjs');
 
 // ---- 2. one process owns the database folder (a second copy running at the same time would damage it) ----
 const lockFile = path.join(dataDir, 'pg.lock');
@@ -99,6 +110,7 @@ try {
   const realFetch = globalThis.fetch;
   globalThis.fetch = async function routedFetch(input, init) {
     let url; try { url = new URL(typeof input === 'string' || input instanceof URL ? String(input) : input.url); } catch { return realFetch(input, init); }
+    if (url.hostname === 'relay.local') return relayFetch(layer.link, url, init);
     if (url.hostname !== 'gateway.local') return realFetch(input, init);
     const method = String(init?.method || (typeof input === 'object' && input.method) || 'GET').toUpperCase();
     const headers = {}; new Headers(init?.headers || {}).forEach((v, k) => { headers[k] = v; });

@@ -31,6 +31,8 @@ processes, so port 3000 (and 5790, 5432) must never be opened in the firewall.
 * **The application cannot stop the layer**: whatever the application answers (wrong shapes, errors, out-of-range status codes) is checked; a route that cannot answer says 503 / 502. Stray errors are logged, not fatal.
 * **What is forwarded**: the path of the identity header and the path sent to the application are the same normalized string (dots resolved, a backslash is refused); an `Origin` other than `PUBLIC_ORIGIN` is refused on every method;
   a redirect of the application is kept on this site (its own address becomes `PUBLIC_ORIGIN`, anything foreign becomes `/`).
+* **Office link** (optional, `BIOMETRIC_LINK_KEY`; used by the single-process entry `deploy/hostinger/main.mjs`, not by this layer run as a separate service): `/__link/*` is handed to `link.mjs` before the sign-in check. It is open to the one program that knows the key (the Server Link of the office computer, `biometric-web/link`), nothing else:
+  bearer key compared in constant time, wrong keys counted and locked per address by a limiter of its own, `Origin` refused, a queue of at most four kinds of request. Without the key `/__link/*` is 404. See `docs/BIOMETRIC-LINK.md`.
 * `GET /__ping` answers `ok` (health check). `GET /signout-with-chatgpt` signs out (the application's Exit link uses this address). `GET /__workspace` tells the screens the company and location chosen at sign-in.
 
 ## Settings (environment variables, see `docs/deploy-kit/env/layer.env.example`)
@@ -45,12 +47,14 @@ processes, so port 3000 (and 5790, 5432) must never be opened in the firewall.
 | `IDLE_MINUTES`, `ABSOLUTE_HOURS` | Session limits, defaults 120 and 12. |
 | `COOKIE_SECURE` | Default: on when `PUBLIC_ORIGIN` is https. `0` only for tests over http. |
 | `TRUST_PROXY` | Default on: the visitor's address is taken from `X-Real-IP` when the connection comes from this server (nginx). `0` to use the socket address. |
+| `BIOMETRIC_LINK_KEY` | Optional, single-process entry only (the application of a multi-process setup cannot use the link). Switches the office link on (32 to 128 characters `A-Z a-z 0-9 - _`; make it with `node make-link-key.mjs --write-to <file>`). A key of the wrong shape switches the link off (the log says so); it does not stop the layer. |
 
 ## Run and test
 
 ```bash
 PUBLIC_ORIGIN=https://hrm.example.com ADMIN_PASSWORD_HASH='scrypt$...' PAYROLL_INTERNAL_KEY=... node server.mjs
-node --test deploy/signin-layer/layer.test.mjs        # 23 tests against a stand-in for the application (from payroll-web/)
+node --test deploy/signin-layer/layer.test.mjs        # 25 tests against a stand-in for the application (from payroll-web/)
+node --test deploy/signin-layer/link.test.mjs         # 22 tests of the office link (relay, layer integration, the Server Link of biometric-web/link)
 ```
 
 The unit tests start the layer in the same process with a small stand-in for the application that checks what the real one checks (origin, identity headers, internal key), and also misbehaves on purpose

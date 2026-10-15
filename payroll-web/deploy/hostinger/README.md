@@ -27,6 +27,10 @@ browser --HTTPS--> hosting (CDN, LiteSpeed) --> sign-in layer --unix socket--> t
 
 Until both variables are set the app answers "not configured". Never put the password itself in a variable.
 
+**Biometric machines (optional): `BIOMETRIC_LINK_KEY`.** The machines are in the office, so Biometric Machine Setup / Biometric Fetch cannot reach them from the hosting. With this key set, a small *Server Link* program on the office PC connects
+to the server over HTTPS and does that work (`docs/BIOMETRIC-LINK.md`). Make the key on the server without showing it: `node deploy/signin-layer/make-link-key.mjs --write-to ~/payroll-data/app.env`, restart the app; read it again (to type it on the
+office PC) with `... make-link-key.mjs --show ~/payroll-data/app.env`. Without the key nothing of this is active.
+
 **Settings file.** The same names can be kept in a file of `KEY=VALUE` lines, `<PAYROLL_DATA_DIR>/app.env` (or the file named by `PAYROLL_ENV_FILE`); real environment variables win over it. Keep it private (`chmod 600`; `make-admin-hash.mjs --write-to <file>` creates it that way). The log (`console.log` of the app) says which file was read.
 
 ## By hand over SSH (a normal website of the plan, no Web App wizard)

@@ -31,6 +31,13 @@ This app is also bundled inside `PayrollWorkspace_Setup.exe`: Payroll Workspace 
 `%LOCALAPPDATA%\BiometricAttendance`), so one setup is enough and Biometric Fetch in Time Updation always finds it.
 Set `PAYROLL_NO_BIOMETRIC=1` to stop that. The separate `BiometricAttendance_Setup.exe` is no longer needed.
 
+## Server Link (when Payroll Workspace runs on a server)
+
+A web server cannot reach the machines, which are on the office network. Run **Start Server Link.cmd** (in `link\`, 2 files, no packages) on this PC next to the app: it calls the server over HTTPS
+(outgoing calls only, nothing to open in the router) and does the machine list, punch export, machine download and auto-download setting for the server's Biometric Machine Setup / Biometric Fetch / Multi Punch
+screens against this app. The first start asks for the server address and the link key (`BIOMETRIC_LINK_KEY` of the server); `--install-startup` makes it start when you sign in to Windows.
+Only those four requests are ever carried out. Details, security and troubleshooting: `docs/BIOMETRIC-LINK.md`. Not needed when Payroll Workspace runs on this PC (Windows setup).
+
 ## If a machine does not connect
 
 - Ping the machine from this PC: `ping 192.168.11.180`. If that fails, this PC is not on the machine's network.

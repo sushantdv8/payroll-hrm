@@ -5,7 +5,7 @@ For hosting the software on a Linux VPS with Plesk, e.g. `hrm.erpkishorexports.c
 **What has and has not been tested.** The application, the PostgreSQL gateway and the Node.js runner were tested on Windows 11
 with PostgreSQL 17.11 and Node.js 24, using a copy of the real company data (see `db-gateway/README.md`, "What was checked").
 The Linux / Plesk steps below follow the same commands but have **not yet been run on your server**: plan a staging run first
-(section 4.9). The sign-in layer for a server exists (`payroll-web/deploy/signin-layer`, section 4.6) and was tested end to end on Windows (browser -> layer -> application on Node -> PostgreSQL); one part is not finished: the biometric link (section 12).
+(section 4.9). The sign-in layer for a server exists (`payroll-web/deploy/signin-layer`, section 4.6) and was tested end to end on Windows (browser -> layer -> application on Node -> PostgreSQL). The attendance machines need a VPN to the office, or on the single-process hosting edition the office link (section 9, `docs/BIOMETRIC-LINK.md`).
 For a plain Ubuntu VPS without Plesk, `deploy-kit/install-ubuntu.sh` does sections 4.1 - 4.7 in one go (nginx + Let's Encrypt instead of Plesk).
 
 ---------------------------------------------------------------------------------------------------------------------------
@@ -298,8 +298,12 @@ Take a database backup first. Tests that can be run after an update: `cd db-gate
 
 The application reads punches through the `biometric-web` program (default address `http://127.0.0.1:5180`, set in the Biometric settings screen), which talks to the machines at
 `192.168.11.x:4370`. A VPS on the internet cannot reach those private addresses. Options: keep `biometric-web` on an office PC and link it with the VPS through a VPN
-(WireGuard / site-to-site) so the app can use `http://<vpn address>:5180`, or run it on the VPS behind such a VPN. A mode where the office PC pushes punches to the server is not built.
-Until this is arranged, attendance can still be imported/entered as before; only the automatic machine download needs the link.
+(WireGuard / site-to-site) so the app can use `http://<vpn address>:5180`, or run it on the VPS behind such a VPN.
+
+On a hosting where only the one web app can be installed (the single-process edition, `payroll-web/deploy/hostinger`) there is no VPN: use the **office link**: set `BIOMETRIC_LINK_KEY` on the server (`node payroll-web/deploy/signin-layer/make-link-key.mjs --write-to <settings file>`, restart)
+and run the **Server Link** (`biometric-web/link`) on the office PC next to the Biometric Attendance app. The office PC only makes outgoing HTTPS calls; the server's Biometric Machine Setup, Biometric Fetch and Multi Punch screens
+then work through it, and only four fixed requests can ever be sent to the office. Setup, safety and troubleshooting: `docs/BIOMETRIC-LINK.md`. (The multi-process VPS layout of this guide does not use the office link; it needs the VPN.)
+Until one of these is arranged, attendance can still be imported/entered as before; only the automatic machine download needs the link.
 
 ## 10. Troubleshooting
 
@@ -325,6 +329,6 @@ Until this is arranged, attendance can still be imported/entered as before; only
 
 1. **Sign-in layer for the server: built** (`payroll-web/deploy/signin-layer`, section 4.6) and tested on Windows with the real application on Node and PostgreSQL; not yet run on your server.
    Its limits: no two-factor authentication or password reset, sessions in memory (a restart signs everybody out), one session per browser, and the Windows edition's read-only "original workspace" is not offered.
-2. **Biometric link** (section 9).
+2. **Biometric link**: built for the single-process hosting edition as the office link (section 9, `docs/BIOMETRIC-LINK.md`; tested end to end with simulated machines); the multi-process VPS layout needs the VPN of section 9.
 3. A test run on your actual server (section 4.9) and, if wished, a load test with your number of users.
 4. The Windows data migration for the editable workspace (a second database) if you want to keep both workspaces.
