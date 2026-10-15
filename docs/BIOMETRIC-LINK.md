@@ -21,7 +21,8 @@ Payroll Workspace (server)  <--HTTPS (outgoing calls of the office PC only)--  S
 * **Biometric Machine Setup** has an **Office link** box instead of the address box: *Connected to the office computer (Server Link 1.0 on PC-NAME) - last contact 12 seconds ago* (green) or
   *The office computer is not connected* (red, with what to do). The box checks itself every 10 to 15 seconds; **Check again** does it at once. The machine list, ticks per company, Download, Auto download,
   Employee Match and the fetch history work as before.
-* When the office computer is away, every screen that needs it says so in one sentence instead of waiting.
+* When the office computer is away, every screen that needs it says so in one sentence instead of waiting. If a Server Link did reach the server but with a refused key, the box says so too
+  (who, from which address, how long the key was), so the first mistake at the office is found at once.
 * **Download** of a machine goes through the link. A hosting cuts a request after about a minute; a machine that takes longer goes on downloading in the office and the screen says
   *still downloading at the office - press Refresh in a minute*.
 
@@ -43,11 +44,13 @@ To read the key again (to type it on the office PC) run `node deploy/signin-laye
 
 1. The Biometric Attendance app must be running there (`Start Biometric.cmd`, or Payroll Workspace / BiometricAttendance_Setup, which start it). Check `http://127.0.0.1:5180` in a browser.
 2. Copy the folder `biometric-web/link` (`server-link.mjs`, `Start Server Link.cmd`) anywhere on that PC and double-click **Start Server Link.cmd**.
-3. The first time it asks for the **server address** (`https://hrm.example.com`, no path; plain `http://` is accepted only for this very PC) and the **key** (pasting it shows nothing). They are saved in
+3. The first time it asks for the **server address** (`https://hrm.example.com`, no path; plain `http://` is accepted only for this very PC) and the **key** (pasting it shows nothing). It then asks the server
+   once: *The server accepted the key.* - or says why not (wrong key: it asks for the key again, up to three times; no internet / wrong address: the reason). The address and key are saved in
    `%LOCALAPPDATA%\BiometricAttendance\server-link.json` (the profile folder of this Windows user). The window then says *Connected to https://...*; keep it open.
+   A key that is saved but wrong stays saved: start again with `Start Server Link.cmd --key <key>` to replace it (double-clicking again would use the saved one).
 4. To have it start by itself when this Windows user signs in: `Start Server Link.cmd --install-startup` (undo: `--remove-startup`). It then runs minimised; the log is
    `%LOCALAPPDATA%\BiometricAttendance\server-link.log` (it starts a new file at 1 MB).
-5. Other options: `--status` (shows the saved server, not the key), `--server`, `--key`, `--app http://127.0.0.1:5180`, `--data <folder>`, `--quiet`. `--key` on the command line stays in the command history: prefer the prompt.
+5. Other options: `--test` (asks the server once whether it is reachable and accepts the key; saves nothing, exit code 0 / 1), `--status` (shows the saved server and the length of the saved key, not the key), `--server`, `--key`, `--app http://127.0.0.1:5180`, `--data <folder>`, `--quiet`. `--key` on the command line stays in the command history: prefer the prompt.
 
 Node.js 22.13 or newer is needed; `Start Server Link.cmd` uses the Node of Payroll Workspace / Biometric Attendance if it is installed, else the one on PATH.
 
@@ -87,7 +90,7 @@ Only four requests exist, checked on the server **and again** by the Server Link
 | You see | Cause and fix |
 |---|---|
 | *The office computer is not connected* | The Server Link is not running (start it), the office PC is off or offline, or the key is wrong. The Server Link window / `server-link.log` says which. |
-| `The server refused the key` (Server Link window) | The key is not the one of the server. Run `Start Server Link.cmd --key <key>` again (or `--status` to see that a key is saved) with the key shown by `make-link-key.mjs --show`. |
+| `The server refused the key` (Server Link window), or on the website under the red line: *A Server Link (name) from <address> reached this server N seconds ago, but the key it sent was refused (N characters; a key made by this server has 43)* | The key is not the one of the server (a typo, a cut-off paste, an old key). Run `Start Server Link.cmd --key <key>` with the key shown by `make-link-key.mjs --show`; `--status` shows how long the saved key is, `--test` checks it. The notice goes away by itself when the right key connects. |
 | `The server does not have the office link switched on` | `BIOMETRIC_LINK_KEY` is not set on the server, or the web app was not restarted after setting it. |
 | `The server asks to wait` | Too many wrong keys came from this address; wait ten minutes, then correct the key. |
 | *The Biometric Attendance app is not running at http://127.0.0.1:5180* | The link is fine but the app on the office PC is not running: start it (keep its window open). |
@@ -111,7 +114,7 @@ All three calls need `Authorization: Bearer <key>` and are served by `payroll-we
 
 ## Tests
 
-* `node --no-warnings --test deploy/signin-layer/link.test.mjs` (from `payroll-web/`, 22 tests): the allowlist is identical in the server and in the Server Link (including the 70-day cap), key checks and the lock
+* `node --no-warnings --test deploy/signin-layer/link.test.mjs` (from `payroll-web/`, 24 tests): the allowlist is identical in the server and in the Server Link (including the 70-day cap), key checks and the lock
   (the right key passes while wrong keys are locked), the round trip with gzip, timeouts and late answers, size limits, one answer at a time per request, per-kind limits, the connection log, the layer integration
   (`/__link` never reaches the application and needs no session; a key of the wrong shape switches the link off), and the Server Link against stand-ins: all four requests, a hostile server (it must not follow
   redirects of the poll, of the answer or of the local app; huge or forged jobs; forged log lines), the app being down, a wrong key, reconnecting, still being seen while busy with downloads, two copies with one key,

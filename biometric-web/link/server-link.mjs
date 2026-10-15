@@ -23,7 +23,7 @@ import readline from 'node:readline';
 import {execFile} from 'node:child_process';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 
-export const VERSION='1.1';
+export const VERSION='1.2';
 const DATE=/^(\d{4})-(\d{2})-(\d{2})$/;
 const dayNumber=s=>{const m=DATE.exec(s);if(!m)return NaN;const d=new Date(Date.UTC(+m[1],+m[2]-1,+m[3]));return d.getUTCFullYear()===+m[1]&&d.getUTCMonth()===+m[2]-1&&d.getUTCDate()===+m[3]?d.getTime()/864e5:NaN;};
 export const MAX_SPAN_DAYS=70;
